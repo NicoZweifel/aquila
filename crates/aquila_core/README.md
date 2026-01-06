@@ -5,7 +5,7 @@
 
 Types and traits for the Aquila asset server ecosystem.
 
-Defines the protocol used by clients and servers to communicate asset metadata.
+Defines the protocol used by clients and servers.
 
 - **[`AssetManifest`](manifest::AssetManifest)**: The source of truth for a game version. Maps logical paths (e.g., `textures/test.png`) to physical content hashes.
 - **[`StorageBackend`](traits::StorageBackend)**: Trait for implementing storage layers (e.g., S3, Filesystem).
