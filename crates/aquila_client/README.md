@@ -1,4 +1,7 @@
 ## Aquila Client
+[![Crates.io](https://img.shields.io/crates/v/aquila_client.svg)](https://crates.io/crates/aquila_client)
+[![Downloads](https://img.shields.io/crates/d/aquila_client.svg)](https://crates.io/crates/aquila_client)
+[![Docs](https://docs.rs/aquila_client/badge.svg)](https://docs.rs/aquila_client/)
 
 An async HTTP client for interacting with an Aquila Server.
 
