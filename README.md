@@ -3,7 +3,6 @@
 [![Crates.io](https://img.shields.io/crates/v/aquila.svg)](https://crates.io/crates/aquila)
 [![Downloads](https://img.shields.io/crates/d/aquila.svg)](https://crates.io/crates/aquila)
 [![Docs](https://docs.rs/aquila/badge.svg)](https://docs.rs/aquila/)
-[![CI](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/NicoZweifel/aquila/actions)
 
 > *Your personal flying courier*
 
