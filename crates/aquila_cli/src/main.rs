@@ -149,10 +149,10 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Upload { path, stream } => {
             let hash = if stream {
-                println!("📤 Uploading stream...");
+                println!("📤 Uploading file stream...");
                 client.upload_stream(&path).await?
             } else {
-                println!("📤 Uploading blob...");
+                println!("📤 Uploading file blob...");
                 client.upload_file(&path).await?
             };
             println!("✅ Upload successful! Hash: {hash}");
