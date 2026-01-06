@@ -1,3 +1,27 @@
+//! # Aquila GitHub Auth
+//! [![Crates.io](https://img.shields.io/crates/v/aquila_auth_github.svg)](https://crates.io/crates/aquila_auth_github)
+//! [![Downloads](https://img.shields.io/crates/d/aquila_auth_github.svg)](https://crates.io/crates/aquila_auth_github)
+//! [![Docs](https://docs.rs/aquila_auth_github/badge.svg)](https://docs.rs/aquila_auth_github/)
+//!
+//! OAuth2 authentication provider using GitHub.
+//!
+//! Allows users to log in using their GitHub accounts.
+//! Supports restricting access to members of a specific GitHub Organization.
+//!
+//! ## Usage
+//!
+//! ```no_run
+//! # use aquila_auth_github::{GithubAuthProvider, GithubConfig};
+//! let config = GithubConfig {
+//!     client_id: "Iv1...".to_string(),
+//!     client_secret: "secret".to_string(),
+//!     redirect_uri: "http://localhost:3000/auth/callback".to_string(),
+//!     required_org: Some("MyGameStudio".to_string()),
+//! };
+//!
+//! let auth = GithubAuthProvider::new(Some(config));
+//! ```
+
 use aquila_core::prelude::*;
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;

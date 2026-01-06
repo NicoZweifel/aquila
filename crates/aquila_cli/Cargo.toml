@@ -6,6 +6,10 @@ description = "Aquila asset server CLI"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
+[[bin]]
+name = "aquila"
+path = "src/main.rs"
+
 [dependencies]
 aquila_client = { path = "../aquila_client" ,version = "0.1.0"}
 aquila_core = { path = "../aquila_core" ,version = "0.1.0"}

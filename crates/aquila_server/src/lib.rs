@@ -1,3 +1,25 @@
+//! # Aquila Server
+//!
+//! A modular, Axum-based asset server implementation.
+//!
+//! Provides the [`AquilaServer`] builder, which ties together a storage backend and an authentication provider
+//! to serve assets.
+//!
+//! ## Example
+//!
+//! ```no_run
+//! use aquila_server::prelude::*;
+//! use aquila_fs::FileSystemStorage;
+//! use aquila_auth_mock::AllowAllAuth;
+//!
+//! # async fn run() {
+//! let storage = FileSystemStorage::new("./assets");
+//! let auth = AllowAllAuth;
+//!
+//! let app = AquilaServer::default().build(storage, auth);
+//! # }
+//! ```
+
 mod api;
 
 pub mod jwt;

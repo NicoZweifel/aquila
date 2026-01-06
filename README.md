@@ -1,4 +1,4 @@
-# 🦅 aquila
+# 🦅 Aquila
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/NicoZweifel/aquila?tab=readme-ov-file#license)
 [![Crates.io](https://img.shields.io/crates/v/aquila.svg)](https://crates.io/crates/aquila)
 [![Downloads](https://img.shields.io/crates/d/aquila.svg)](https://crates.io/crates/aquila)
@@ -35,23 +35,78 @@ If you ship public read-only tokens to users, make sure you are aware of what th
 > [!IMPORTANT]
 > Make sure you vet any auth providers and OAuth applications and its permissions that you intend to use thoroughly before using them in production.
 
+## Feature Flags
+
+| Feature | Description |
+|---------|-------------|
+| **`server`** | Includes the Axum-based server implementation (`aquila_server`). |
+| **`client`** | Includes the HTTP client (`aquila_client`) for tooling. |
+| **`fs`** | Storage backend for the local filesystem (`aquila_fs`). |
+| **`s3`** | Storage backend for AWS S3 (`aquila_s3`). |
+| **`opendal`** | Storage backend for OpenDAL (`aquila_opendal`). |
+| **`github_auth`** | GitHub OAuth2 provider (`aquila_auth_github`). |
+| **`mock_auth`** | Development authentication provider (`aquila_auth_mock`). |
+
 ## Examples
 
-### Simple server + Bevy
+### Simple server 
 
 ```sh
 cargo run --example simple_server --features "server fs mock_auth"
 ```
+
+### Simple client
 
 Simple client (will publish v1.0 manifest and test.png)
 ```sh
 cargo run --examples simple_client --features "client"
 ```
 
+### Bevy
+
 Bevy example (uses v1.0 manifest and test.png)
 
 ```shell
 cargo run --example bevy
+```
+
+### Custom Server
+
+```toml
+[dependencies]
+aquila = { version = "0.1", features = ["server", "fs", "mock_auth"] }
+```
+
+```rust
+use aquila::prelude::*;
+
+#[tokio::main]
+async fn main() {
+    let storage = FileSystemStorage::new("./assets");
+     let auth = AllowAllAuth;
+
+    // Build
+    let app = AquilaServer::default().build(storage, auth);
+    
+    // Serve
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+```
+
+The rest of the examples use the [CLI](/crates/aquila_cli)
+
+> [!TIP]
+> While not required, it's recommended to install the CLI to make usage easier.
+
+#### Install cli
+crates.io:
+```bash
+cargo install aquila_cli
+```
+From source: 
+```bash
+cargo install --path crates/aquila_cli
 ```
 
 ### AWS S3
@@ -69,7 +124,7 @@ cargo run --example s3_server --features "server s3 mock_auth"
 ```
 Publish v1.0 manifest and test.png
 ```shell
-cargo run -p aquila_cli -- publish --dir ./assets --version "v1.0"     
+aquila publish --dir ./assets --version "v1.0"
 ```
 Bevy example (uses v1.0 manifest and test.png)
 
@@ -84,7 +139,7 @@ Generate & set JWT secret:
 You can use the CLI to generate a secret or provide your own:
 
 ```sh
-cargo run -p aquila_cli -- generate-secret   
+aquila generate-secret   
 set AQUILA_SECRET=...
 ```
 
@@ -108,7 +163,7 @@ cargo run --example github_auth_server --features "server fs github_auth"
 You should now be able to log in using a second terminal:
 
 ```shell
-cargo run -p aquila_cli -- login      
+aquila login      
 ```
 
 Now set the token that you get after you've been redirected back to the callback route:
@@ -120,13 +175,13 @@ set AQUILA_TOKEN=...
 You should have full access now! To mint a read-only public token:
 
 ```sh
-cargo run -p aquila_cli -- mint-token --subject "release-build-v1.0"  
+aquila mint-token --subject "release-build-v1.0"  
 ```
 
 To publish all assets and a manifest:
 
 ```shell
-cargo run -p aquila_cli -- publish --dir ./assets --version "v1.0"     
+aquila publish --dir ./assets --version "v1.0"     
 ```
 Bevy example (uses v1.0 manifest and test.png)
 
@@ -134,16 +189,16 @@ Bevy example (uses v1.0 manifest and test.png)
 cargo run --example bevy
 ```
 
-### CLI
+### CLI commands
 
 single file test
 ```sh
-cargo run -p aquila_cli -- upload ./assets/test.png
+aquila upload ./assets/test.png
 ```
 
 publish manifest and assets
 ```sh
-cargo run -p aquila_cli -- publish --dir ./assets --version v1.0`
+aquila publish --dir ./assets --version v1.0`
 ```
 
 ### Bevy

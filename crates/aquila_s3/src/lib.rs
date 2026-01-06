@@ -1,3 +1,37 @@
+//! # Aquila S3 Storage
+//! [![Crates.io](https://img.shields.io/crates/v/aquila_s3.svg)](https://crates.io/crates/aquila_s3)
+//! [![Downloads](https://img.shields.io/crates/d/aquila_s3.svg)](https://crates.io/crates/aquila_s3)
+//! [![Docs](https://docs.rs/aquila_s3/badge.svg)](https://docs.rs/aquila_s3/)
+//!
+//! AWS S3 backend integration for Aquila.
+//!
+//! Uses the official [`aws-sdk-s3`] to store assets in an S3 bucket. It supports
+//! prefixes for organizing data within shared buckets.
+//!
+//! ## Configuration
+//!
+//! Required the standard AWS environment variables (e.g., `AWS_REGION`, `AWS_ACCESS_KEY_ID`)
+//! handled by `aws-config`.
+//!
+//! ## Usage
+//!
+//! ```no_run
+//! # use aquila_s3::S3Storage;
+//! # use aws_sdk_s3::Client;
+//! # async fn run() {
+//! let config = aws_config::load_from_env().await;
+//! let client = Client::new(&config);
+//!
+//! let storage = S3Storage::new(
+//!     client,
+//!     // Bucket
+//!     "my-game-assets".to_string(),
+//!     // Optional Prefix
+//!     Some("production/".to_string())
+//! );
+//! # }
+//! ```
+
 use aquila_core::prelude::*;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::error::SdkError;

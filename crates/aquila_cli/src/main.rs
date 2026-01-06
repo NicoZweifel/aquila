@@ -1,3 +1,47 @@
+//! # Aquila CLI
+//! [![Crates.io](https://img.shields.io/crates/v/aquila_cli.svg)](https://crates.io/crates/aquila_cli)
+//! [![Downloads](https://img.shields.io/crates/d/aquila_cli.svg)](https://crates.io/crates/aquila_cli)
+//!
+//! A command-line interface for managing the Aquila Asset Server.
+//!
+//! Allows developers and CI/CD pipelines to interact with an Aquila instance
+//! to upload assets, publish versions and minting tokens.
+//!
+//! **NOTE**: This tool requires a running instance of the Aquila server.
+//!
+//! ## Installation
+//!
+//! crates.io:
+//! ```bash
+//! cargo install aquila_cli
+//! ```
+//! From source:
+//! ```bash
+//! cargo install --path crates/aquila_cli
+//! ```
+//!
+//! ## Configuration
+//!
+//! Can be configured via flags or environment variables:
+//!
+//! * **URL**: `--url` or `AQUILA_URL` (default: `http://localhost:3000`)
+//! * **Token**: `--token` or `AQUILA_TOKEN`
+//!
+//! ## Common Commands
+//!
+//! * **Publish a version**:
+//!     ```bash
+//!     aquila publish --dir ./assets --version v1.0.0
+//!     ```
+//! * **Mint a long-lived token** (requires admin permissions):
+//!     ```bash
+//!     aquila mint-token --subject "build_server" --duration 31536000
+//!     ```
+//! * **Generate a JWT Secret** (for server setup):
+//!     ```bash
+//!     aquila generate-secret
+//!     ```
+
 use aquila_client::AquilaClient;
 use aquila_core::manifest::{AssetInfo, AssetManifest};
 use chrono::Utc;
@@ -16,7 +60,12 @@ struct Cli {
     command: Commands,
 
     /// Server URL
-    #[arg(short, long, default_value = "http://localhost:3000")]
+    #[arg(
+        short,
+        long,
+        default_value = "http://localhost:3000",
+        env = "AQUILA_URL"
+    )]
     url: String,
 
     #[arg(short, long, env = "AQUILA_TOKEN")]

@@ -1,3 +1,27 @@
+//! # Aquila OpenDAL Storage
+//! [![Crates.io](https://img.shields.io/crates/v/aquila_opendal.svg)](https://crates.io/crates/aquila_opendal)
+//! [![Downloads](https://img.shields.io/crates/d/aquila_opendal.svg)](https://crates.io/crates/aquila_opendal)
+//! [![Docs](https://docs.rs/aquila_opendal/badge.svg)](https://docs.rs/aquila_opendal/)
+//!
+//! A storage backend powered by [Apache OpenDAL](https://opendal.apache.org/).
+//!
+//! Allows Aquila to run on any storage service supported by OpenDAL, including
+//! the file system, AWS S3, GCS, Azure Blob Storage and more.
+//!
+//! ## Usage
+//!
+//! ```no_run
+//! # use aquila_opendal::OpendalStorage;
+//! # use opendal::{Operator, services::Gcs};
+//! # async fn run() {
+//! let mut builder = Gcs::default();
+//! builder.bucket("my-gcs-bucket");
+//!
+//! let op = Operator::new(builder).unwrap().finish();
+//! let storage = OpendalStorage::new(op);
+//! # }
+//! ```
+
 use aquila_core::prelude::*;
 use bytes::Bytes;
 use opendal::Operator;

@@ -1,3 +1,25 @@
+//! # Aquila FileSystem Storage
+//! [![Crates.io](https://img.shields.io/crates/v/aquila_fs.svg)](https://crates.io/crates/aquila_fs)
+//! [![Downloads](https://img.shields.io/crates/d/aquila_fs.svg)](https://crates.io/crates/aquila_fs)
+//! [![Docs](https://docs.rs/aquila_fs/badge.svg)](https://docs.rs/aquila_fs/)
+//!
+//! A local filesystem backend for Aquila.
+//!
+//! This crate implements the [`StorageBackend`] trait, storing blobs
+//! and manifests directly in the file system.
+//!
+//! ## Features
+//!
+//! * **Atomic Writes**: Uses temporary files and rename operations to ensure assets are not read partially or lost during upload.
+//!
+//! ## Usage
+//!
+//! ```no_run
+//! use aquila_fs::FileSystemStorage;
+//!
+//! let storage = FileSystemStorage::new("./aquila_data");
+//! ```
+
 use aquila_core::prelude::*;
 use bytes::Bytes;
 use std::path::PathBuf;
