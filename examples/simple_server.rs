@@ -1,3 +1,13 @@
+//! # Simple Server Example
+//!
+//! Showcases a minimal [`AquilaServer`] using the local filesystem and mock authentication.
+//!
+//! ## Usage
+//!
+//! ```sh
+//! cargo run --example simple_server --features "server fs mock_auth"
+//! ```
+
 use aquila::prelude::*;
 use std::env;
 

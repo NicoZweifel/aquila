@@ -166,8 +166,7 @@ pub async fn issue_token<S: StorageBackend, A: AuthProvider>(
     AuthenticatedUser(user): AuthenticatedUser,
     Json(req): Json<CreateTokenRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    // TODO maybe limit this to admin or separate scope
-    check_scope(&user, "write")?;
+    check_scope(&user, "admin")?;
 
     let scopes = req.scopes.unwrap_or_else(|| vec!["read".to_string()]);
     if scopes.contains(&"admin".to_string()) {

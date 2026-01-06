@@ -1,3 +1,20 @@
+//! # S3 Server Example
+//!
+//! Showcases a [`S3Storage`] backend server with Presigned URLs enabled.
+//!
+//! ## Requirements
+//!
+//! Set the following environment variables:
+//! - `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (or use `aws configure`)
+//! - `S3_BUCKET`: The name of your bucket.
+//!
+//! ## Usage
+//!
+//! ```sh
+//! cargo run --example s3_server --features "server s3 mock_auth"
+//! ```
+
+
 use aquila::prelude::*;
 use aws_config::BehaviorVersion;
 use std::env;

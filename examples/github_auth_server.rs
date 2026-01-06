@@ -1,3 +1,20 @@
+//! # GitHub Auth Server
+//!
+//! Showcases [`GithubAuthProvider`] backend server with local filesystem storage.
+//!
+//! ## Requirements
+//!
+//! Set the following environment variables:
+//! - `AQUILA_JWT_SECRET`
+//! - `GITHUB_CLIENT_ID`
+//! - `GITHUB_CLIENT_SECRET`
+//!
+//! ## Usage
+//!
+//! ```sh
+//! cargo run --example github_auth_server --features "server fs github_auth"
+//! ```
+
 use aquila::prelude::*;
 use std::env;
 

@@ -1,3 +1,13 @@
+//! # OpenDAL Server Example
+//!
+//! Showcases an [`OpendalStorage`] backend server (configured for fs).
+//!
+//! ## Usage
+//!
+//! ```sh
+//! cargo run --example opendal_server --features "server opendal mock_auth"
+//! ```
+
 use aquila::prelude::*;
 use opendal::{Operator, services::Fs};
 use std::env;

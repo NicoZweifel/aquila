@@ -1,3 +1,13 @@
+//! # Simple Client Example
+//!
+//! Demonstrates uploading a file, creating a manifest, and publishing a version.
+//!
+//! ## Usage
+//!
+//! ```sh
+//! cargo run --example simple_client --features "client"
+//! ```
+
 use aquila::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;

@@ -20,7 +20,7 @@
 //! This crate aims at simplifying this process by providing a simple server, a client and a cli that can be used to serve versioned assets.
 //! At the moment, it supports:
 //!
-//! - Serve assets to your game clients
+//! - Serve assets to your game clients (through presigned URLs or a CDN if you want to)
 //! - Publish assets and manifests to a server
 //! - Minting (read-only public) tokens
 //! - Authenticate users (custom or OAuth, see [`aquila_auth_mock`](/crates/aquila_auth_mock) and [`aquila_auth_github`](/crates/aquila_auth_github))

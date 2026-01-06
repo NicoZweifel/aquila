@@ -1,3 +1,18 @@
+//! # Bevy Example
+//!
+//! Loads an asset from the server into Bevy.
+//!
+//! ## Usage
+//!
+//! ```sh
+//! cargo run --example bevy
+//! ```
+//!
+//! To use a specific token or URL:
+//! ```sh
+//! AQUILA_URL=http://... AQUILA_TOKEN=... cargo run --example bevy
+//! ```
+
 use bevy::prelude::*;
 use bevy_aquila::*;
 
