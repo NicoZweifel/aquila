@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-aquila_client = { path = "../aquila_client" }
-aquila_core = { path = "../aquila_core" }
+aquila_client = { path = "../aquila_client" ,version = "0.1.0"}
+aquila_core = { path = "../aquila_core" ,version = "0.1.0"}
 clap = { version = "4.5", features = ["derive", "env"] }
 tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }

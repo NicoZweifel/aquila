@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-aquila_client = { path = "../aquila_client" }
-aquila_core = { path = "../aquila_core" }
+aquila_client = { path = "../aquila_client",version = "0.1.0" }
+aquila_core = { path = "../aquila_core" ,version = "0.1.0"}
 bevy = { version = "0.17", default-features = false, features = ["bevy_asset", "bevy_render", "bevy_core_pipeline", "bevy_sprite", "bevy_winit", "x11", "tonemapping_luts", "bevy_ui", "png"] }
 futures-lite = "2.0"
 tokio = { version = "1.49", features = ["sync", "rt-multi-thread"] }
