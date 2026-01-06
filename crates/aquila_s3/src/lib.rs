@@ -125,7 +125,7 @@ impl StorageBackend for S3Storage {
             return Ok(false);
         }
 
-        debug!("Uploading new blob to S3...");
+        debug!("Uploading to S3...");
         self.client
             .put_object()
             .bucket(&self.bucket)
@@ -156,7 +156,7 @@ impl StorageBackend for S3Storage {
             return Ok(false);
         }
 
-        debug!("Streaming upload to S3...");
+        debug!("Streaming to S3...");
         let (sender, receiver) = mpsc::channel(2);
         tokio::spawn(async move {
             while let Some(res) = stream.next().await {

@@ -208,10 +208,8 @@ impl AquilaClient {
 
         let local_hash = hex::encode(hasher.finalize());
         let file = File::open(path).await?;
-        let metadata = file.metadata().await?;
-        let size = metadata.len();
-        let stream = ReaderStream::new(file);
-        let body = reqwest::Body::wrap_stream(stream);
+        let size = file.metadata().await?.len();
+        let body = reqwest::Body::wrap_stream(ReaderStream::new(file));
         let url = format!("{}/assets/stream/{}", self.base_url, local_hash);
 
         let response = self
