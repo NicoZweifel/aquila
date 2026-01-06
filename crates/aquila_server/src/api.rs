@@ -63,8 +63,12 @@ pub async fn download_asset<S: StorageBackend, A: AuthProvider>(
 ) -> Result<impl IntoResponse, ApiError> {
     check_scope(&user, "read")?;
     let data = state.storage.read_file(&hash).await?;
+    if let Some(url) = state.storage.get_download_url(&hash).await? {
+        return Ok(Redirect::temporary(&url).into_response());
+    }
+
     // TODO set Content-Type based on manifest info
-    Ok(data)
+    Ok(data.into_response())
 }
 
 /// POST /assets

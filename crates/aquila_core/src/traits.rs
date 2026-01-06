@@ -28,6 +28,17 @@ pub trait StorageBackend: Send + Sync + 'static + Clone {
     fn get_manifest_path(&self, version: &str) -> String {
         format!("manifests/{version}")
     }
+
+    /// Optional: Returns a direct download URL (e.g., S3 Presigned URL, CDN URL).
+    ///
+    /// - If this returns `Ok(Some(url))`, the server will issue a 307 Redirect to that URL.
+    /// - If `Ok(None)` (default), the server will download and proxy the file.
+    fn get_download_url(
+        &self,
+        _path: &str,
+    ) -> impl Future<Output = Result<Option<String>, StorageError>> + Send {
+        async { Ok(None) }
+    }
 }
 
 #[derive(Debug, Clone)]

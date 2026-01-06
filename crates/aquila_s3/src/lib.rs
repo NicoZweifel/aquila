@@ -6,11 +6,12 @@
 //! AWS S3 backend integration for Aquila.
 //!
 //! Uses the official [`aws-sdk-s3`] to store assets in an S3 bucket. It supports
-//! prefixes for organizing data within shared buckets.
+//! prefixes for organizing data within shared buckets and **Presigned URLs** for
+//! downloads via S3/CDN directly.
 //!
 //! ## Configuration
 //!
-//! Required the standard AWS environment variables (e.g., `AWS_REGION`, `AWS_ACCESS_KEY_ID`)
+//! Requires the standard AWS environment variables (e.g., `AWS_REGION`, `AWS_ACCESS_KEY_ID`)
 //! handled by `aws-config`.
 //!
 //! ## Usage
@@ -18,25 +19,28 @@
 //! ```no_run
 //! # use aquila_s3::S3Storage;
 //! # use aws_sdk_s3::Client;
+//! # use std::time::Duration;
 //! # async fn run() {
 //! let config = aws_config::load_from_env().await;
 //! let client = Client::new(&config);
 //!
 //! let storage = S3Storage::new(
 //!     client,
-//!     // Bucket
-//!     "my-game-assets".to_string(),
-//!     // Optional Prefix
-//!     Some("production/".to_string())
-//! );
+//!     "my-game-assets".to_string(), // Bucket
+//!     Some("production/".to_string()) // Optional Prefix
+//! )
+//! // Optional: Enable Presigned URLs (Direct S3 Download)
+//! .with_presigning(Duration::from_secs(300));
 //! # }
 //! ```
 
 use aquila_core::prelude::*;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::error::SdkError;
+use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
+use std::time::Duration;
 use tracing::{debug, error, instrument};
 
 #[derive(Clone)]
@@ -44,6 +48,8 @@ pub struct S3Storage {
     client: Client,
     bucket: String,
     prefix: String,
+    /// If set, generate presigned URLs for this duration.
+    presign_duration: Option<Duration>,
 }
 
 impl S3Storage {
@@ -52,7 +58,14 @@ impl S3Storage {
             client,
             bucket,
             prefix: prefix.unwrap_or_default(),
+            presign_duration: None,
         }
+    }
+
+    /// Enable presigned URLs (e.g. 5 minutes)
+    pub fn with_presigning(mut self, duration: Duration) -> Self {
+        self.presign_duration = Some(duration);
+        self
     }
 
     fn key(&self, path: &str) -> String {
@@ -190,5 +203,29 @@ impl StorageBackend for S3Storage {
             }
             Err(e) => Err(StorageError::Generic(format!("S3 Error: {e}"))),
         }
+    }
+
+    async fn get_download_url(&self, path: &str) -> Result<Option<String>, StorageError> {
+        let Some(duration) = self.presign_duration else {
+            return Ok(None);
+        };
+
+        let key = self.key(path);
+        let cfg = PresigningConfig::expires_in(duration)
+            .map_err(|e| StorageError::Generic(format!("Invalid presign config: {}", e)))?;
+
+        let req = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(&key)
+            .presigned(cfg)
+            .await
+            .map_err(|e| {
+                error!("Failed to presign URL: {:?}", e);
+                StorageError::Generic(format!("S3 Presign Error: {}", e))
+            })?;
+
+        Ok(Some(req.uri().to_string()))
     }
 }

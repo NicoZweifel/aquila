@@ -8,12 +8,15 @@ async fn main() {
     // Config
     let jwt_secret = env::var("AQUILA_JWT_SECRET").expect("JWT Secret required");
     let required_org = env::var("AQUILA_GITHUB_ORG").ok();
-    let gh_config = env::var("GITHUB_CLIENT_ID")
-        .and_then(|id| {
-            env::var("GITHUB_CLIENT_SECRET").map(|secret| GithubConfig {
-                client_id: id,
-                client_secret: secret,
-                redirect_uri: "http://localhost:3000/auth/callback".to_string(),
+
+    // Must match the callback route in the GitHub app and the server config callback, see below.
+    let redirect_uri = "http://localhost:3000/auth/callback".to_string();
+    let gh_cfg = env::var("GITHUB_CLIENT_ID")
+        .and_then(|client_id| {
+            env::var("GITHUB_CLIENT_SECRET").map(|client_secret| GithubConfig {
+                redirect_uri,
+                client_id,
+                client_secret,
                 required_org,
             })
         })
@@ -21,14 +24,15 @@ async fn main() {
 
     // Providers
     let storage = FileSystemStorage::new("./aquila_data");
-    let github_auth = GithubAuthProvider::new(gh_config);
+    let github_auth = GithubAuthProvider::new(gh_cfg);
     let jwt_service = JwtService::new(&jwt_secret);
     let auth = JWTServiceAuthProvider::new(jwt_service, github_auth);
 
     // Build
     let app = AquilaServer::new(AquilaSeverConfig {
         jwt_secret,
-        ..Default::default()
+        // this is the default but just to be explicit, see above.
+        callback: "/auth/callback".to_string(),
     })
     .build(storage, auth);
 
