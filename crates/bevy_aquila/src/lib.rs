@@ -28,7 +28,7 @@
 //!
 //! | bevy | bevy_aquila |
 //! |---|---|
-//! | 0.17 | 0.1 |
+//! | 0.17 | 0.2 |
 //!
 
 use aquila_client::{AquilaClient, AquilaClientError};
