@@ -5,7 +5,7 @@
 //!
 //! A storage backend powered by [Apache OpenDAL](https://opendal.apache.org/).
 //!
-//! Allows Aquila to run on any storage service supported by OpenDAL, including
+//! Allows the server to be backed by any storage service supported by OpenDAL, including
 //! the file system, AWS S3, GCS, Azure Blob Storage and more.
 //!
 //! ## Usage

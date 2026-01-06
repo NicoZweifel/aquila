@@ -3,7 +3,7 @@
 //! [![Downloads](https://img.shields.io/crates/d/aquila_s3.svg)](https://crates.io/crates/aquila_s3)
 //! [![Docs](https://docs.rs/aquila_s3/badge.svg)](https://docs.rs/aquila_s3/)
 //!
-//! AWS S3 backend integration for Aquila.
+//! A storage backend powered by [AWS S3](https://aws.amazon.com/s3/).
 //!
 //! Uses the official [`aws-sdk-s3`] to store assets in an S3 bucket. It supports
 //! prefixes for organizing data within shared buckets and **Presigned URLs** for
