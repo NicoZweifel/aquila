@@ -40,6 +40,7 @@ impl OpendalStorage {
         Self { op }
     }
 
+    /// Private helper to check existence.
     async fn exists(&self, path: &str) -> Result<bool, StorageError> {
         let exists = self
             .op

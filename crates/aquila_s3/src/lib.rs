@@ -95,6 +95,7 @@ impl S3Storage {
         self
     }
 
+    /// Private helper to create a key from a path. Adds the prefix if set.
     fn key(&self, path: &str) -> String {
         self.prefix
             .is_empty()
@@ -102,8 +103,9 @@ impl S3Storage {
             .unwrap_or(format!("{}{path}", self.prefix))
     }
 
-    async fn exists(&self, key: &str) -> bool {
-        let exists = self
+    /// Private helper to check existence.
+    async fn exists(&self, key: &str) -> Result<bool, StorageError> {
+        let res = self
             .client
             .head_object()
             .bucket(&self.bucket)
@@ -111,11 +113,16 @@ impl S3Storage {
             .send()
             .await;
 
-        if exists.is_ok() {
-            debug!("Blob already exists in S3");
+        match res {
+            Ok(_) => {
+                debug!("Blob already exists in S3");
+                Ok(true)
+            }
+            Err(SdkError::ServiceError(err)) if err.err().is_not_found() => Ok(false),
+            Err(err) => Err(StorageError::Generic(format!(
+                "S3 Head Object Error: {err:?}"
+            ))),
         }
-
-        exists.is_ok()
     }
 }
 
@@ -125,7 +132,7 @@ impl StorageBackend for S3Storage {
         let key = self.key(hash);
         tracing::Span::current().record("key", &key);
 
-        if self.exists(&key).await {
+        if self.exists(&key).await? {
             return Ok(false);
         }
 
@@ -156,7 +163,7 @@ impl StorageBackend for S3Storage {
         let key = self.key(hash);
         tracing::Span::current().record("key", &key);
 
-        if self.exists(&key).await {
+        if self.exists(&key).await? {
             return Ok(false);
         }
 
@@ -252,32 +259,7 @@ impl StorageBackend for S3Storage {
     async fn exists(&self, path: &str) -> Result<bool, StorageError> {
         let key = self.key(path);
         tracing::Span::current().record("key", &key);
-
-        let res = self
-            .client
-            .head_object()
-            .bucket(&self.bucket)
-            .key(&key)
-            .send()
-            .await;
-
-        match res {
-            Ok(_) => Ok(true),
-            Err(SdkError::ServiceError(err)) => {
-                if err.err().is_not_found() {
-                    Ok(false)
-                } else {
-                    {
-                        error!("S3 Head Object Error: {:?}", err);
-                        Err(StorageError::Generic(format!(
-                            "S3 Service Error: {:?}",
-                            err
-                        )))
-                    }
-                }
-            }
-            Err(e) => Err(StorageError::Generic(format!("S3 Error: {e}"))),
-        }
+        self.exists(&key).await
     }
 
     #[instrument(skip(self), fields(bucket = %self.bucket, key))]
