@@ -29,6 +29,12 @@ cargo run --example bevy
 
 You need to set the `AWS_REGION`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` env vars and/or use the AWS cli (`aws configure`).
 
+Set the bucket name
+
+```shell
+set S3_BUCKET=...
+```
+Run the server
 ```shell
 cargo run --example s3_server --features "server s3 mock_auth"
 ```
@@ -52,7 +58,7 @@ set AQUILA_SECRET=...
 
 Create a [GitHub oauth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
 
-The routes are configurable, you're going to have to make sure the callback routes match.
+The routes are configurable, you're going to have to make sure the callback route matches (in this case `/auth/callback`).
 
 ```rust
 impl Default for AuthRoutes {
@@ -76,7 +82,7 @@ Run the server
 
 ```sh
 cargo run --example github_auth_server --features "server fs github_auth"
-```
+ ```
 
 You should now be able to log in using a second terminal:
 
@@ -101,6 +107,7 @@ To publish all assets and a manifest:
 ```shell
 cargo run -p aquila_cli -- publish --dir ./assets --version "v1.0"     
 ```
+Now you can use the assets in bevy the same way as the simple example.
 
 ### CLI
 
@@ -113,8 +120,6 @@ publish manifest and assets
 ```sh
 cargo run -p aquila_cli -- publish --dir ./assets --version v1.0`
 ```
-
-Now you can use the assets in bevy the same way as the simple example.
 
 ### Bevy
 

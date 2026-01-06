@@ -1,5 +1,4 @@
 use aquila::prelude::*;
-use aquila_server::AquilaSeverConfig;
 use aws_config::BehaviorVersion;
 use std::env;
 
@@ -11,22 +10,16 @@ async fn main() {
     let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
-    let bucket_name = env::var("AQUILA_BUCKET").expect("AQUILA_BUCKET env var required");
-    let jwt_secret = env::var("AQUILA_JWT_SECRET").expect("JWT Secret required");
+    let bucket_name = env::var("S3_BUCKET").expect("S3_BUCKET env var required");
 
     // Providers
     let storage = S3Storage::new(s3_client, bucket_name, Some("assets/v1/".to_string()));
-    let jwt_service = JwtService::new(&jwt_secret);
 
     // Don't use this in production! This is just for demonstration/testing purposes
     let auth = AllowAllAuth; // e.g., use GithubAuthProvider instead
-    let auth = JWTServiceAuthProvider::new(jwt_service, auth);
 
     // Build
-    let app = AquilaServer::new(AquilaSeverConfig {
-        jwt_secret,
-        ..Default::default()
-    })
+    let app = AquilaServer::default()
     .build(storage, auth);
 
     // Serve
