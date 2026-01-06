@@ -37,31 +37,38 @@ impl AquilaServer {
 
 #[derive(Clone, Debug)]
 pub struct AuthRoutes {
-    login: String,
     callback: String,
-    token: String,
 }
 
 impl Default for AuthRoutes {
     fn default() -> Self {
         Self {
-            login: "/auth/login".to_string(),
             callback: "/auth/callback".to_string(),
-            token: "/auth/token".to_string(),
         }
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct AquilaSeverConfig {
     pub jwt_secret: String,
-    pub routes: AuthRoutes,
+    pub callback: String,
+}
+
+impl Default for AquilaSeverConfig {
+    fn default() -> Self {
+        Self {
+            jwt_secret: "TOP_SECRET".to_string(),
+            callback: "/auth/callback".to_string(),
+        }
+    }
 }
 
 impl AquilaServer {
     pub fn build<S: StorageBackend, A: AuthProvider>(self, storage: S, auth: A) -> Router {
         let AquilaSeverConfig {
-            jwt_secret, routes, ..
+            jwt_secret,
+            callback,
+            ..
         } = self.config;
         let jwt_service = JwtService::new(&jwt_secret);
         let state = AppState {
@@ -71,9 +78,9 @@ impl AquilaServer {
         };
 
         Router::new()
-            .route(routes.login.as_str(), get(api::auth_login))
-            .route(routes.callback.as_str(), get(api::auth_callback))
-            .route(routes.token.as_str(), post(api::issue_token))
+            .route("/auth/login", get(api::auth_login))
+            .route(callback.as_str(), get(api::auth_callback))
+            .route("/auth/token", post(api::issue_token))
             .route("/assets/{hash}", get(api::download_asset))
             .route("/assets", post(api::upload_asset))
             .route("/manifest/{version}", get(api::get_manifest))
