@@ -102,7 +102,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! aquila = { version = "0.2", features = ["server", "fs", "mock_auth"] }
+//! aquila = { version = "0.3", features = ["server", "fs", "mock_auth"] }
 //! ```
 //!
 //! ```rust,no_run
