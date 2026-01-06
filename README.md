@@ -168,6 +168,7 @@ I'd be willing to revisit this though if there's a better alternative.
 - add some tests
 - add some convenience features like `latest` etc.
 - docker images, nix flakes
+- meta file support and other bevy asset reader functionality (folders)
 
 ## License
 
