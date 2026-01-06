@@ -39,13 +39,13 @@ The workspace is composed of modular crates, allowing you to pick and choose the
 
 ### Core & Integration
 
-| Crate | Description                                                                                             |
-|-------|---------------------------------------------------------------------------------------------------------|
+| Crate | Description                                                                                    |
+|-------|------------------------------------------------------------------------------------------------|
 | [`aquila_core`](./crates/aquila_core) | Shared types (`AssetManifest`) and traits (`StorageBackend`, `AuthProvider`) used across the ecosystem. |
-| [`aquila_server`](./crates/aquila_server) | The Axum-based server implementation. Can be used as a library to build custom servers.                 |
-| [`bevy_aquila`](./crates/bevy_aquila) | The Bevy plugin. Registers the `aquila://` asset source and handles streaming.                          |
-| [`aquila_client`](./crates/aquila_client) | Async HTTP client library. Used by the CLI and other tools/plugins to interact with the server.         |
-| [`aquila_cli`](./crates/aquila_cli) | Command-line interface for uploading assets, publishing versions, and managing tokens.                  |
+| [`aquila_server`](./crates/aquila_server) | The Axum-based server implementation. Can be used as a library to build custom servers.        |
+| [`bevy_aquila`](./crates/bevy_aquila) | The Bevy plugin. Registers the `aquila://` asset source and handles downloading manifests/assets.                          |
+| [`aquila_client`](./crates/aquila_client) | Async HTTP client library. Used by the CLI and other tools/plugins to interact with the server. |
+| [`aquila_cli`](./crates/aquila_cli) | Command-line interface for uploading assets, publishing versions, and managing tokens.         |
 
 ### Storage Backends
 
