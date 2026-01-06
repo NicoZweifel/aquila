@@ -24,9 +24,9 @@ async fn main() {
 
     // Providers
     let storage = FileSystemStorage::new("./aquila_data");
-    let github_auth = GithubAuthProvider::new(gh_cfg);
+    let gh_auth = GithubAuthProvider::new(gh_cfg);
     let jwt_service = JwtService::new(&jwt_secret);
-    let auth = JWTServiceAuthProvider::new(jwt_service, github_auth);
+    let auth = JWTServiceAuthProvider::new(jwt_service, gh_auth);
 
     // Build
     let app = AquilaServer::new(AquilaSeverConfig {
