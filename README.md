@@ -24,6 +24,7 @@ At the moment, it supports:
 
 - Serve assets to your game clients
 - Publish assets and manifests to a server
+- Minting (read-only public) tokens
 - Authenticate users (custom or OAuth, see [`aquila_auth_mock`](/crates/aquila_auth_mock) and [`aquila_auth_github`](/crates/aquila_auth_github)) 
 
 ## Security Notice
