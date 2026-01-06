@@ -40,9 +40,11 @@ use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::{ByteStream, SdkBody};
 use bytes::Bytes;
-use futures::Stream;
-use hyper::Body;
+use futures::{Stream, TryStreamExt};
+use http_body_util::StreamBody;
+use hyper::body::Frame;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 use tracing::{debug, error, instrument};
 
@@ -53,6 +55,28 @@ pub struct S3Storage {
     prefix: String,
     /// If set, generate presigned URLs for this duration.
     presign_duration: Option<Duration>,
+}
+
+/// A wrapper to assert Sync for a Stream that is [`Send`].
+///
+/// Required because `aws-sdk-s3` (via `SdkBody`) requires the body to be [`Sync`],
+/// but Axum streams are generally `!Sync`. Since the data is streamed
+/// linearly and ownership is moved into the SDK client, [`Sync`] can safely be asserted.
+struct SyncStream<S>(S);
+
+// SAFETY: Strictly wrap `Send` stream. The usage pattern in SdkBody/hyper involves
+// polling via `&mut self`, which enforces exclusive access.
+unsafe impl<S: Send> Sync for SyncStream<S> {}
+
+impl<S, T, E> Stream for SyncStream<S>
+where
+    S: Stream<Item = Result<T, E>> + Unpin,
+{
+    type Item = Result<T, E>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.0).poll_next(cx)
+    }
 }
 
 impl S3Storage {
@@ -137,17 +161,16 @@ impl StorageBackend for S3Storage {
         }
 
         debug!("Streaming upload to S3...");
-
-        let body = Body::wrap_stream(stream);
-        let sdk_body = SdkBody::from_body_0_4(body);
-        let stream = ByteStream::new(sdk_body);
+        let byte_stream = ByteStream::new(SdkBody::from_body_1_x(StreamBody::new(
+            SyncStream(stream).map_ok(Frame::data).map_err(|e| e),
+        )));
 
         let mut req = self
             .client
             .put_object()
             .bucket(&self.bucket)
             .key(&key)
-            .body(stream);
+            .body(byte_stream);
 
         if let Some(len) = content_length {
             req = req.content_length(len as i64);

@@ -128,7 +128,7 @@ impl StorageBackend for OpendalStorage {
     }
 
     async fn exists(&self, path: &str) -> Result<bool, StorageError> {
-        self.exists(&path).await
+        self.exists(path).await
     }
 
     async fn delete_file(&self, path: &str) -> Result<(), StorageError> {

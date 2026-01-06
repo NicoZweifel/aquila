@@ -367,8 +367,8 @@ dependencies = [
  "aws-sdk-s3",
  "bytes",
  "futures",
- "hyper 0.14.32",
- "tokio-util",
+ "http-body-util",
+ "hyper 1.8.1",
  "tracing",
 ]
 

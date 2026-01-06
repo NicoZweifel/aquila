@@ -116,7 +116,7 @@ pub async fn upload_asset_stream<S: StorageBackend, A: AuthProvider>(
     let stream = request
         .into_body()
         .into_data_stream()
-        .map_err(|e| std::io::Error::other(e))
+        .map_err(std::io::Error::other)
         .map_ok(move |chunk| {
             if let Ok(mut h) = hasher_writer.lock() {
                 h.update(&chunk);
