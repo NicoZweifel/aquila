@@ -71,17 +71,6 @@ Create a [GitHub OAuth app](https://docs.github.com/en/apps/oauth-apps/building-
 
 The routes are configurable, you're going to have to make sure the callback route matches (in this case `/auth/callback`).
 
-```rust
-impl Default for AuthRoutes {
-    fn default() -> Self {
-        Self {
-            login: "/auth/login".to_string(),
-            callback: "/auth/callback".to_string(),
-            token: "/auth/token".to_string(),
-        }
-    }
-}
-```
 Set the client id and secret env vars
 
 ```shell
