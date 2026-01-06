@@ -33,7 +33,7 @@ Bevy example (uses v1.0 manifest and test.png)
 cargo run --example bevy
 ```
 
-#### AWS
+#### AWS S3
 
 You need to set the `AWS_REGION`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` env vars and/or use the AWS cli (`aws configure`).
 
@@ -167,6 +167,7 @@ I'd be willing to revisit this though if there's a better alternative.
 
 - add some tests
 - add some convenience features like `latest` etc.
+- docker images, flakes
 
 ## License
 

@@ -4,7 +4,6 @@ use axum::{
     Router,
     routing::{get, post},
 };
-use std::marker::PhantomData;
 use tower_http::trace::TraceLayer;
 
 mod api;
