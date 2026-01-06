@@ -167,7 +167,11 @@ async fn main() -> anyhow::Result<()> {
             duration,
             scopes,
         } => {
-            let o_scopes = scopes.is_empty().then(|| None).unwrap_or(Some(scopes));
+            let o_scopes = if scopes.is_empty() {
+                None
+            } else {
+                Some(scopes)
+            };
 
             println!("🔑 Minting token for '{}'...", subject);
 

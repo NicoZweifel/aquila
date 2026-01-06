@@ -80,12 +80,11 @@ pub async fn upload_asset<S: StorageBackend, A: AuthProvider>(
     hasher.update(&body);
     let hash = hex::encode(hasher.finalize());
 
-    let status = state
-        .storage
-        .write_blob(&hash, body)
-        .await?
-        .then(|| StatusCode::CREATED)
-        .unwrap_or(StatusCode::OK);
+    let status = if state.storage.write_blob(&hash, body).await? {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
 
     Ok((status, hash))
 }
@@ -189,7 +188,7 @@ pub async fn auth_callback<S: StorageBackend, A: AuthProvider>(
         .auth
         .exchange_code(&params.code)
         .await
-        .map_err(|e| ApiError::from(e))?;
+        .map_err(ApiError::from)?;
 
     let session_token = state.jwt_service.mint(
         user.id.clone(),

@@ -16,16 +16,9 @@ use state::AppState;
 use tower_http::trace::TraceLayer;
 
 /// The builder for the Aquila Server.
+#[derive(Clone, Debug, Default)]
 pub struct AquilaServer {
     config: AquilaSeverConfig,
-}
-
-impl Default for AquilaServer {
-    fn default() -> Self {
-        Self {
-            config: Default::default(),
-        }
-    }
 }
 
 impl AquilaServer {

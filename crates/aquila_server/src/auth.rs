@@ -24,7 +24,7 @@ where
         let token = parts
             .headers
             .get("Authorization")
-            .map(|auth_header| {
+            .and_then(|auth_header| {
                 auth_header
                     .to_str()
                     .map(|header_str| {
@@ -35,7 +35,6 @@ where
                     })
                     .ok()
             })
-            .flatten()
             .unwrap_or("");
 
         match state.auth.verify(token).await {

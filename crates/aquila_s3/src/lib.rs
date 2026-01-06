@@ -141,17 +141,19 @@ impl StorageBackend for S3Storage {
 
         match res {
             Ok(_) => Ok(true),
-            Err(SdkError::ServiceError(err)) => err
-                .err()
-                .is_not_found()
-                .then(|| Ok(false))
-                .unwrap_or_else(|| {
-                    error!("S3 Head Object Error: {:?}", err);
-                    Err(StorageError::Generic(format!(
-                        "S3 Service Error: {:?}",
-                        err
-                    )))
-                }),
+            Err(SdkError::ServiceError(err)) => {
+                if err.err().is_not_found() {
+                    Ok(false)
+                } else {
+                    {
+                        error!("S3 Head Object Error: {:?}", err);
+                        Err(StorageError::Generic(format!(
+                            "S3 Service Error: {:?}",
+                            err
+                        )))
+                    }
+                }
+            }
             Err(e) => Err(StorageError::Generic(format!("S3 Error: {e}"))),
         }
     }
