@@ -41,6 +41,7 @@ pub mod state;
 
 use aquila_core::traits::{AuthProvider, StorageBackend};
 use axum::extract::DefaultBodyLimit;
+use axum::routing::put;
 use axum::{
     Router,
     routing::{get, post},
@@ -91,10 +92,12 @@ impl AquilaServer {
         };
 
         Router::new()
+            .route("/health", get(|| async { "OK" }))
             .route("/auth/login", get(api::auth_login))
             .route("/auth/token", post(api::issue_token))
             .route(callback.as_str(), get(api::auth_callback))
             .route("/assets/{hash}", get(api::download_asset))
+            .route("/assets/stream/{hash}", put(api::upload_asset_stream))
             .route("/assets", post(api::upload_asset))
             .route("/manifest/{version}", get(api::get_manifest))
             .route("/manifest", post(api::publish_manifest))

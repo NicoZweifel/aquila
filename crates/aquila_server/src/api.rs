@@ -1,16 +1,19 @@
 use crate::auth::AuthenticatedUser;
 use crate::state::AppState;
+
 use aquila_core::prelude::*;
-use axum::extract::Query;
 use axum::response::Redirect;
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, Request, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
+use futures::TryStreamExt;
 use sha2::{Digest, Sha256};
+use std::sync::{Arc, Mutex};
+use tracing::error;
 
 pub struct ApiError(anyhow::Error);
 
@@ -85,6 +88,72 @@ pub async fn upload_asset<S: StorageBackend, A: AuthProvider>(
     let hash = hex::encode(hasher.finalize());
 
     let status = if state.storage.write_blob(&hash, body).await? {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+
+    Ok((status, hash))
+}
+
+// PUT /assets/stream/{hash}
+pub async fn upload_asset_stream<S: StorageBackend, A: AuthProvider>(
+    State(state): State<AppState<S, A>>,
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path(hash): Path<String>,
+    request: Request,
+) -> Result<impl IntoResponse, ApiError> {
+    check_scope(&user, "write")?;
+
+    let content_length = request
+        .headers()
+        .get(axum::http::header::CONTENT_LENGTH)
+        .and_then(|val| val.to_str().ok())
+        .and_then(|val| val.parse::<u64>().ok());
+
+    let hasher = Arc::new(Mutex::new(Sha256::new()));
+    let hasher_writer = hasher.clone();
+    let stream = request
+        .into_body()
+        .into_data_stream()
+        .map_err(|e| std::io::Error::other(e))
+        .map_ok(move |chunk| {
+            if let Ok(mut h) = hasher_writer.lock() {
+                h.update(&chunk);
+            }
+            chunk
+        });
+
+    let pinned_stream = Box::pin(stream);
+    let created = state
+        .storage
+        .write_stream(&hash, pinned_stream, content_length)
+        .await?;
+
+    if created {
+        let calculated_hash = {
+            let hasher_guard = hasher.lock().map_err(|_| {
+                ApiError::from(anyhow::anyhow!("Internal Error: Hasher mutex poisoned"))
+            })?;
+            hex::encode(hasher_guard.clone().finalize())
+        };
+
+        if calculated_hash != hash {
+            error!(
+                "Hash mismatch for upload {hash}. Calculated: {calculated_hash}. Deleting file."
+            );
+
+            if let Err(e) = state.storage.delete_file(&hash).await {
+                error!("Failed to delete corrupted file {hash}: {e}");
+            }
+
+            return Err(ApiError::from(StorageError::Generic(format!(
+                "Integrity check failed. Expected {hash}, got {calculated_hash}"
+            ))));
+        };
+    }
+
+    let status = if created {
         StatusCode::CREATED
     } else {
         StatusCode::OK

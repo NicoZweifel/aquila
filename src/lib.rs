@@ -22,6 +22,7 @@
 //!
 //! - Serve assets to your game clients (through presigned URLs or a CDN if you want to)
 //! - Publish assets and manifests to a server
+//! - Streaming uploads for large files
 //! - Minting (read-only public) tokens
 //! - Authenticate users (custom or OAuth, see [`aquila_auth_mock`](/crates/aquila_auth_mock) and [`aquila_auth_github`](/crates/aquila_auth_github))
 //!
@@ -101,7 +102,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! aquila = { version = "0.1", features = ["server", "fs", "mock_auth"] }
+//! aquila = { version = "0.2", features = ["server", "fs", "mock_auth"] }
 //! ```
 //!
 //! ```rust,no_run
@@ -152,6 +153,10 @@
 //! Publish v1.0 manifest and test.png
 //! ```shell
 //! aquila publish --dir ./assets --version "v1.0"
+//! ```
+//! #### Streaming
+//! ```shell
+//! aquila publish --dir ./assets --version "v1.0" --stream
 //! ```
 //! Bevy example (uses v1.0 manifest and test.png)
 //!
@@ -228,6 +233,9 @@
 //! aquila publish --dir ./assets --version v1.0`
 //! ```
 //!
+//! > [!Tip]
+//! > Upload/publish commands support streaming with `--stream`.
+//!
 //! ### Bevy
 //!
 //! As shown above in the other examples, after publishing a manifest version, you can use the assets in bevy:
@@ -263,7 +271,6 @@
 //! - meta file support and other bevy asset reader functionality (folders)
 //! - readmes in crate folders
 //! - multiple scopes, not just read/write/admin
-//! - streaming large files (chunked encoding)
 //! - I experimented with a VCSProvider trait to verify the version of the manifest against the VCS,
 //!   but decided against it for now, but it definitely could be useful.
 //!

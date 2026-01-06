@@ -9,5 +9,8 @@ repository = "https://github.com/NicoZweifel/aquila"
 [dependencies]
 aquila_core = { path = "../aquila_core" ,version = "0.2.0"}
 aws-sdk-s3 = "1.1"
+hyper = { version = "0.14", features = ["stream"] }
 bytes = { workspace = true }
+futures = {workspace = true}
+tokio-util = "0.7"
 tracing = "0.1"

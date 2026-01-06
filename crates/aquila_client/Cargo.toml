@@ -8,11 +8,12 @@ repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
 aquila_core = { path = "../aquila_core" ,version = "0.2.0"}
-reqwest = {workspace = true}
+reqwest = {workspace = true, features = ["stream"]}
 tokio = { workspace = true, features = ["fs"] }
 anyhow = { workspace = true }
 sha2 = {workspace = true}
 hex = {workspace = true}
+tokio-util = "0.7"
 thiserror = "2.0"
 serde = { version = "1.0.228", features = ["derive"] }
 

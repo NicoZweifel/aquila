@@ -1,4 +1,4 @@
- # 🦅 Aquila
+# 🦅 Aquila
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/NicoZweifel/aquila?tab=readme-ov-file#license)
 [![Crates.io](https://img.shields.io/crates/v/aquila.svg)](https://crates.io/crates/aquila)
 [![Downloads](https://img.shields.io/crates/d/aquila.svg)](https://crates.io/crates/aquila)
@@ -22,6 +22,7 @@ At the moment, it supports:
 
 - Serve assets to your game clients (through presigned URLs or a CDN if you want to)
 - Publish assets and manifests to a server
+- Streaming uploads for large files
 - Minting (read-only public) tokens
 - Authenticate users (custom or OAuth, see [`aquila_auth_mock`](/crates/aquila_auth_mock) and [`aquila_auth_github`](/crates/aquila_auth_github))
 
@@ -39,13 +40,13 @@ The workspace is composed of modular crates, allowing you to pick and choose the
 
 ### Core & Integration
 
-| Crate | Description                                                                                    |
-|-------|------------------------------------------------------------------------------------------------|
+| Crate | Description |
+|-------|-------------|
 | [`aquila_core`](./crates/aquila_core) | Shared types (`AssetManifest`) and traits (`StorageBackend`, `AuthProvider`) used across the ecosystem. |
-| [`aquila_server`](./crates/aquila_server) | The Axum-based server implementation. Can be used as a library to build custom servers.        |
-| [`bevy_aquila`](./crates/bevy_aquila) | The Bevy plugin. Registers the `aquila://` asset source and handles downloading manifests/assets.                          |
+| [`aquila_server`](./crates/aquila_server) | The Axum-based server implementation. Can be used as a library to build custom servers. |
+| [`bevy_aquila`](./crates/bevy_aquila) | The Bevy plugin. Registers the `aquila://` asset source and handles downloading manifests/assets. |
 | [`aquila_client`](./crates/aquila_client) | Async HTTP client library. Used by the CLI and other tools/plugins to interact with the server. |
-| [`aquila_cli`](./crates/aquila_cli) | Command-line interface for uploading assets, publishing versions, and managing tokens.         |
+| [`aquila_cli`](./crates/aquila_cli) | Command-line interface for uploading assets, publishing versions, and managing tokens. |
 
 ### Storage Backends
 
@@ -62,7 +63,7 @@ The workspace is composed of modular crates, allowing you to pick and choose the
 | [`aquila_auth_github`](./crates/aquila_auth_github) | OAuth2 provider for GitHub. Supports organization membership checks. |
 | [`aquila_auth_mock`](./crates/aquila_auth_mock) | **Dev Only**. A mock provider that allows any token to pass with admin privileges. |
 
-### Feature Flags
+## Feature Flags
 
 | Feature | Description |
 |---------|-------------|
@@ -101,7 +102,7 @@ cargo run --example bevy
 
 ```toml
 [dependencies]
-aquila = { version = "0.1", features = ["server", "fs", "mock_auth"] }
+aquila = { version = "0.2", features = ["server", "fs", "mock_auth"] }
 ```
 
 ```rust
@@ -126,7 +127,7 @@ The rest of the examples use the [CLI](/crates/aquila_cli)
 > [!TIP]
 > While not required, it's recommended to install the CLI to make usage easier.
 
-##### Install cli
+### Install cli
 crates.io:
 ```bash
 cargo install aquila_cli
@@ -136,7 +137,7 @@ From source:
 cargo install --path crates/aquila_cli
 ```
 
-#### AWS S3
+### AWS S3
 
 You need to set the `AWS_REGION`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` env vars and/or use the AWS cli (`aws configure`).
 
@@ -153,13 +154,17 @@ Publish v1.0 manifest and test.png
 ```shell
 aquila publish --dir ./assets --version "v1.0"
 ```
+#### Streaming
+```shell
+aquila publish --dir ./assets --version "v1.0" --stream
+```
 Bevy example (uses v1.0 manifest and test.png)
 
 ```shell
 cargo run --example bevy
 ```
 
-#### GitHub auth and JWT Minting (for read-only tokens)
+### GitHub auth and JWT Minting (for read-only tokens)
 
 Generate & set JWT secret:
 
@@ -228,6 +233,9 @@ publish manifest and assets
 aquila publish --dir ./assets --version v1.0`
 ```
 
+> [!TIP]
+> Upload/publish commands support streaming with `--stream`.
+
 ### Bevy
 
 As shown above in the other examples, after publishing a manifest version, you can use the assets in bevy:
@@ -263,9 +271,8 @@ I'd be willing to revisit this though if there's a better alternative.
 - meta file support and other bevy asset reader functionality (folders)
 - readmes in crate folders
 - multiple scopes, not just read/write/admin
-- streaming large files (chunked encoding)
 - I experimented with a VCSProvider trait to verify the version of the manifest against the VCS,
-but decided against it for now, but it definitely could be useful.
+  but decided against it for now, but it definitely could be useful.
 
 ## License
 

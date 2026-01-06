@@ -8,5 +8,6 @@ repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
 aquila_core = { path = "../aquila_core" ,version = "0.2.0"}
+futures = {workspace = true}
 bytes = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }

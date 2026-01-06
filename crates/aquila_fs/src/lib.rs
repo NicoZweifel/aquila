@@ -22,7 +22,9 @@
 
 use aquila_core::prelude::*;
 use bytes::Bytes;
+use futures::{Stream, StreamExt};
 use std::path::PathBuf;
+use std::pin::Pin;
 use tokio::fs;
 
 async fn atomic_write(path: &std::path::Path, data: Bytes) -> Result<(), StorageError> {
@@ -65,6 +67,40 @@ impl StorageBackend for FileSystemStorage {
         Ok(true)
     }
 
+    async fn write_stream(
+        &self,
+        hash: &str,
+        mut stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        _content_length: Option<u64>,
+    ) -> Result<bool, StorageError> {
+        let path = self.get_path(hash);
+        if path.exists() {
+            return Ok(false);
+        }
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).await.map_err(StorageError::Io)?;
+        }
+        let tmp_path = path.with_extension("tmp");
+
+        let mut file = fs::File::create(&tmp_path)
+            .await
+            .map_err(StorageError::Io)?;
+
+        use tokio::io::AsyncWriteExt;
+        while let Some(r_chunk) = stream.next().await {
+            let chunk = r_chunk.map_err(StorageError::Io)?;
+            file.write_all(&chunk).await.map_err(StorageError::Io)?;
+        }
+        file.flush().await.map_err(StorageError::Io)?;
+
+        fs::rename(&tmp_path, path)
+            .await
+            .map_err(StorageError::Io)?;
+
+        Ok(true)
+    }
+
     async fn write_manifest(&self, version: &str, data: Bytes) -> Result<(), StorageError> {
         let path = self.get_path(&self.get_manifest_path(version));
         atomic_write(&path, data).await?;
@@ -84,5 +120,13 @@ impl StorageBackend for FileSystemStorage {
 
     async fn exists(&self, path: &str) -> Result<bool, StorageError> {
         Ok(self.get_path(path).exists())
+    }
+
+    async fn delete_file(&self, path: &str) -> Result<(), StorageError> {
+        let path = self.get_path(path);
+        if path.exists() {
+            fs::remove_file(&path).await.map_err(StorageError::Io)?;
+        }
+        Ok(())
     }
 }

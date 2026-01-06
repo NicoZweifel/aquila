@@ -10,3 +10,4 @@ repository = "https://github.com/NicoZweifel/aquila"
 aquila_core = { path = "../aquila_core" ,version = "0.2.0"}
 opendal = { version = "0.55", features = ["services-s3", "services-fs", "services-gcs", "services-azblob"] }
 bytes = { workspace = true }
+futures = {workspace = true}

@@ -1,15 +1,31 @@
 use crate::error::*;
+use std::pin::Pin;
 
 use bytes::Bytes;
+use futures::Stream;
 
 /// A trait for injecting storage logic into the server.
 pub trait StorageBackend: Send + Sync + 'static + Clone {
-    /// Writes a file to the storage backend.
+    /// Writes a file blob to the storage backend.
     fn write_blob(
         &self,
         hash: &str,
         data: Bytes,
     ) -> impl Future<Output = Result<bool, StorageError>> + Send;
+
+    /// Writes a file stream to the storage backend.
+    fn write_stream(
+        &self,
+        _hash: &str,
+        _stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        _content_length: Option<u64>,
+    ) -> impl Future<Output = Result<bool, StorageError>> + Send {
+        async {
+            Err(StorageError::Generic(
+                "Streaming not implemented for this backend".into(),
+            ))
+        }
+    }
 
     /// Writes a manifest with the specified version to the storage backend.
     fn write_manifest(
@@ -39,6 +55,9 @@ pub trait StorageBackend: Send + Sync + 'static + Clone {
     ) -> impl Future<Output = Result<Option<String>, StorageError>> + Send {
         async { Ok(None) }
     }
+
+    /// Deletes a file from the storage backend.
+    fn delete_file(&self, path: &str) -> impl Future<Output = Result<(), StorageError>> + Send;
 }
 
 #[derive(Debug, Clone)]

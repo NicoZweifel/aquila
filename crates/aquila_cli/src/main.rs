@@ -77,6 +77,9 @@ enum Commands {
     /// Upload a single file
     Upload {
         path: PathBuf,
+        #[arg(long)]
+        /// Use streaming upload (recommended for very large files)
+        stream: bool,
     },
     /// Publish a directory as a new Game Version
     Publish {
@@ -87,6 +90,10 @@ enum Commands {
         /// The version string (e.g., "0.1.0" or git sha)
         #[arg(long)]
         version: String,
+
+        /// Use streaming upload (recommended for very large files)
+        #[arg(long)]
+        stream: bool,
     },
     /// Download a file by hash
     Download {
@@ -140,12 +147,25 @@ async fn main() -> anyhow::Result<()> {
             println!("After logging in, copy the 'token' from the JSON response and set it:");
             println!("set AQUILA_TOKEN=\"...\"");
         }
-        Commands::Upload { path } => {
-            let hash = client.upload_file(&path).await?;
+        Commands::Upload { path, stream } => {
+            let hash = if stream {
+                println!("📤 Uploading stream...");
+                client.upload_stream(&path).await?
+            } else {
+                println!("📤 Uploading blob...");
+                client.upload_file(&path).await?
+            };
             println!("✅ Upload successful! Hash: {hash}");
         }
-        Commands::Publish { dir, version } => {
+        Commands::Publish {
+            dir,
+            version,
+            stream,
+        } => {
             println!("🚀 Publishing version '{version}' from {dir:?}...");
+            if stream {
+                println!("ℹ️  Using streaming upload mode");
+            }
 
             let mut assets = HashMap::new();
             let mut count = 0;
@@ -165,7 +185,12 @@ async fn main() -> anyhow::Result<()> {
 
                 println!("Processing: {relative_path}");
 
-                let hash = client.upload_file(path).await?;
+                let hash = if stream {
+                    client.upload_stream(path).await?
+                } else {
+                    client.upload_file(path).await?
+                };
+
                 let size = entry.metadata()?.len();
                 let mime_type = Some(
                     mime_guess::from_path(path)

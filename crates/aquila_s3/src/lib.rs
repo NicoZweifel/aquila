@@ -38,8 +38,11 @@ use aquila_core::prelude::*;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::presigning::PresigningConfig;
-use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::primitives::{ByteStream, SdkBody};
 use bytes::Bytes;
+use futures::Stream;
+use hyper::Body;
+use std::pin::Pin;
 use std::time::Duration;
 use tracing::{debug, error, instrument};
 
@@ -74,6 +77,22 @@ impl S3Storage {
             .then(|| path.to_string())
             .unwrap_or(format!("{}{path}", self.prefix))
     }
+
+    async fn exists(&self, key: &str) -> bool {
+        let exists = self
+            .client
+            .head_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await;
+
+        if exists.is_ok() {
+            debug!("Blob already exists in S3");
+        }
+
+        exists.is_ok()
+    }
 }
 
 impl StorageBackend for S3Storage {
@@ -82,16 +101,7 @@ impl StorageBackend for S3Storage {
         let key = self.key(hash);
         tracing::Span::current().record("key", &key);
 
-        let exists = self
-            .client
-            .head_object()
-            .bucket(&self.bucket)
-            .key(&key)
-            .send()
-            .await;
-
-        if exists.is_ok() {
-            debug!("Blob already exists in S3");
+        if self.exists(&key).await {
             return Ok(false);
         }
 
@@ -109,6 +119,45 @@ impl StorageBackend for S3Storage {
             })?;
 
         debug!("Upload successful");
+        Ok(true)
+    }
+
+    #[instrument(skip(self, stream), fields(bucket = %self.bucket, key))]
+    async fn write_stream(
+        &self,
+        hash: &str,
+        stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        content_length: Option<u64>,
+    ) -> Result<bool, StorageError> {
+        let key = self.key(hash);
+        tracing::Span::current().record("key", &key);
+
+        if self.exists(&key).await {
+            return Ok(false);
+        }
+
+        debug!("Streaming upload to S3...");
+
+        let body = Body::wrap_stream(stream);
+        let sdk_body = SdkBody::from_body_0_4(body);
+        let stream = ByteStream::new(sdk_body);
+
+        let mut req = self
+            .client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(&key)
+            .body(stream);
+
+        if let Some(len) = content_length {
+            req = req.content_length(len as i64);
+        }
+
+        req.send().await.map_err(|e| {
+            error!("Failed to upload stream: {e:?}");
+            StorageError::Generic(format!("S3 Upload Error: {e:?}"))
+        })?;
+
         Ok(true)
     }
 
@@ -176,8 +225,11 @@ impl StorageBackend for S3Storage {
         }
     }
 
+    #[instrument(skip(self), fields(bucket = %self.bucket, key))]
     async fn exists(&self, path: &str) -> Result<bool, StorageError> {
         let key = self.key(path);
+        tracing::Span::current().record("key", &key);
+
         let res = self
             .client
             .head_object()
@@ -205,12 +257,15 @@ impl StorageBackend for S3Storage {
         }
     }
 
+    #[instrument(skip(self), fields(bucket = %self.bucket, key))]
     async fn get_download_url(&self, path: &str) -> Result<Option<String>, StorageError> {
+        let key = self.key(path);
+        tracing::Span::current().record("key", &key);
+
         let Some(duration) = self.presign_duration else {
             return Ok(None);
         };
 
-        let key = self.key(path);
         let cfg = PresigningConfig::expires_in(duration)
             .map_err(|e| StorageError::Generic(format!("Invalid presign config: {}", e)))?;
 
@@ -227,5 +282,23 @@ impl StorageBackend for S3Storage {
             })?;
 
         Ok(Some(req.uri().to_string()))
+    }
+
+    #[instrument(skip(self), fields(bucket = %self.bucket, key))]
+    async fn delete_file(&self, path: &str) -> Result<(), StorageError> {
+        let key = self.key(path);
+        tracing::Span::current().record("key", &key);
+
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(&key)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("Failed to delete file: {:?}", e);
+                StorageError::Generic(format!("S3 Delete Error: {:?}", e))
+            })?;
+        Ok(())
     }
 }

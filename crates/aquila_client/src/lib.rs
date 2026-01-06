@@ -52,6 +52,7 @@ use tokio::io::AsyncReadExt;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio_util::io::ReaderStream;
 
 #[derive(Error, Debug)]
 pub enum AquilaClientError {
@@ -185,6 +186,45 @@ impl AquilaClient {
         let server_hash = response.text().await?;
         if server_hash != local_hash {
             eprintln!("⚠️ Warning: Server hash mismatch");
+        }
+
+        Ok(local_hash)
+    }
+
+    /// Streams a file. Required for very large files.
+    pub async fn upload_stream(&self, path: &Path) -> Result<String> {
+        let mut file = File::open(path).await?;
+        let mut hasher = Sha256::new();
+        // 64KB chunk buffer
+        let mut buffer = [0u8; 64 * 1024];
+
+        loop {
+            let x = file.read(&mut buffer).await?;
+            if x == 0 {
+                break;
+            }
+            hasher.update(&buffer[..x]);
+        }
+
+        let local_hash = hex::encode(hasher.finalize());
+        let file = File::open(path).await?;
+        let metadata = file.metadata().await?;
+        let size = metadata.len();
+        let stream = ReaderStream::new(file);
+        let body = reqwest::Body::wrap_stream(stream);
+        let url = format!("{}/assets/stream/{}", self.base_url, local_hash);
+
+        let response = self
+            .auth_request(self.client.put(&url))
+            .header("Content-Length", size)
+            .body(body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
         }
 
         Ok(local_hash)
