@@ -32,9 +32,7 @@ impl Default for AquilaServer {
 
 impl AquilaServer {
     pub fn new(config: AquilaSeverConfig) -> Self {
-        Self {
-            config,
-        }
+        Self { config }
     }
 }
 

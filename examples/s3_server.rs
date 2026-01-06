@@ -19,8 +19,7 @@ async fn main() {
     let auth = AllowAllAuth; // e.g., use GithubAuthProvider instead
 
     // Build
-    let app = AquilaServer::default()
-    .build(storage, auth);
+    let app = AquilaServer::default().build(storage, auth);
 
     // Serve
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
