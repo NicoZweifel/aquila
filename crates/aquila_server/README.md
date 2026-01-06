@@ -1,4 +1,7 @@
 ## Aquila Server
+[![Crates.io](https://img.shields.io/crates/v/aquila_server.svg)](https://crates.io/crates/aquila_server)
+[![Downloads](https://img.shields.io/crates/d/aquila_server.svg)](https://crates.io/crates/bevy_aquila)
+[![Docs](https://docs.rs/aquila_server/badge.svg)](https://docs.rs/aquila_server/)
 
 A modular, Axum-based asset server implementation.
 

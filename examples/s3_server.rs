@@ -14,7 +14,6 @@
 //! cargo run --example s3_server --features "server s3 mock_auth"
 //! ```
 
-
 use aquila::prelude::*;
 use aws_config::BehaviorVersion;
 use std::env;
