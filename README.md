@@ -1,11 +1,11 @@
 # 🦅 aquila
-
-> *Your personal flying asset courier*
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/NicoZweifel/aquila?tab=readme-ov-file#license)
 [![Crates.io](https://img.shields.io/crates/v/aquila.svg)](https://crates.io/crates/aquila)
 [![Downloads](https://img.shields.io/crates/d/aquila.svg)](https://crates.io/crates/aquila)
 [![Docs](https://docs.rs/aquila/badge.svg)](https://docs.rs/aquila/)
 [![CI](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/NicoZweifel/aquila/actions)
+
+> *Your personal flying asset courier*
 
 A modular asset server with support for OAuth and multiple file backends, meant for serving game assets but could probably be used for other things too.
 
