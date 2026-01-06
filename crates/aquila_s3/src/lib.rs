@@ -169,7 +169,7 @@ impl StorageBackend for S3Storage {
 
         debug!("Streaming upload to S3...");
         let byte_stream = ByteStream::new(SdkBody::from_body_1_x(StreamBody::new(
-            SyncStream(stream).map_ok(Frame::data).map_err(|e| e),
+            SyncStream(stream).map_ok(Frame::data),
         )));
 
         let mut req = self
