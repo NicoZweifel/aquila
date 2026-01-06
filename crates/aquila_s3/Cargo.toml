@@ -14,3 +14,4 @@ http-body-util = "0.1"
 bytes = { workspace = true }
 futures = {workspace = true}
 tracing = "0.1"
+tokio = { workspace = true, features = ["rt", "sync"] }

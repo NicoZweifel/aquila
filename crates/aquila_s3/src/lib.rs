@@ -40,12 +40,13 @@ use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::{ByteStream, SdkBody};
 use bytes::Bytes;
-use futures::{Stream, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use http_body_util::StreamBody;
 use hyper::body::Frame;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
+use tokio::sync::mpsc;
 use tracing::{debug, error, instrument};
 
 #[derive(Clone)]
@@ -57,25 +58,13 @@ pub struct S3Storage {
     presign_duration: Option<Duration>,
 }
 
-/// A wrapper to assert Sync for a Stream that is [`Send`].
-///
-/// Required because `aws-sdk-s3` (via `SdkBody`) requires the body to be [`Sync`],
-/// but Axum streams are generally `!Sync`. Since the data is streamed
-/// linearly and ownership is moved into the SDK client, [`Sync`] can safely be asserted.
-struct SyncStream<S>(S);
+struct ChannelStream(mpsc::Receiver<Result<Bytes, std::io::Error>>);
 
-// SAFETY: Strictly wrap `Send` stream. The usage pattern in SdkBody/hyper involves
-// polling via `&mut self`, which enforces exclusive access.
-unsafe impl<S: Send> Sync for SyncStream<S> {}
-
-impl<S, T, E> Stream for SyncStream<S>
-where
-    S: Stream<Item = Result<T, E>> + Unpin,
-{
-    type Item = Result<T, E>;
+impl Stream for ChannelStream {
+    type Item = Result<Bytes, std::io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.0).poll_next(cx)
+        self.0.poll_recv(cx)
     }
 }
 
@@ -157,7 +146,7 @@ impl StorageBackend for S3Storage {
     async fn write_stream(
         &self,
         hash: &str,
-        stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        mut stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
         content_length: Option<u64>,
     ) -> Result<bool, StorageError> {
         let key = self.key(hash);
@@ -168,8 +157,18 @@ impl StorageBackend for S3Storage {
         }
 
         debug!("Streaming upload to S3...");
+        let (tx, rx) = mpsc::channel(2);
+        tokio::spawn(async move {
+            while let Some(res) = stream.next().await {
+                if tx.send(res).await.is_err() {
+                    break;
+                }
+            }
+        });
+
+        let sync_stream = ChannelStream(rx);
         let byte_stream = ByteStream::new(SdkBody::from_body_1_x(StreamBody::new(
-            SyncStream(stream).map_ok(Frame::data),
+            sync_stream.map_ok(Frame::data),
         )));
 
         let mut req = self
