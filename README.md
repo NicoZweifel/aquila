@@ -159,6 +159,8 @@ I'd be willing to revisit this though if there's a better alternative.
 - docker images, nix flakes (a simple server example should be enough)
 - meta file support and other bevy asset reader functionality (folders) 
 - readmes in crate folders
+- multiple scopes, not just read/write/admin
+- streaming large files (chunked encoding)
 
 ## License
 
