@@ -6,7 +6,7 @@
 
 > *Your personal flying courier*
 
-A modular asset server with support for OAuth and multiple file backends, meant for serving game assets but could probably be used for other things too.
+A modular asset server with support for OAuth/CDNs/presigned URLs and multiple file backends, meant for serving game assets but could probably be used for other things too.
 
 > [!CAUTION]
 > This package is in early development!
