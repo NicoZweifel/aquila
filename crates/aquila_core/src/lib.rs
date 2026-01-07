@@ -3,7 +3,7 @@
 //! [![Downloads](https://img.shields.io/crates/d/aquila_core.svg)](https://crates.io/crates/aquila_core)
 //! [![Docs](https://docs.rs/aquila_core/badge.svg)](https://docs.rs/aquila_core/)
 //!
-//! Types and traits for the Aquila asset server ecosystem.
+//! Types and traits for the ecosystem.
 //!
 //! Defines the protocol used by clients and servers.
 //!
