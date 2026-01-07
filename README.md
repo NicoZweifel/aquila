@@ -102,7 +102,7 @@ cargo run --example bevy
 
 ```toml
 [dependencies]
-aquila = { version = "0.5", features = ["server", "fs", "mock_auth"] }
+aquila = { version = "0.6", features = ["server", "fs", "mock_auth"] }
 ```
 
 ```rust
