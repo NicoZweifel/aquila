@@ -277,7 +277,6 @@ I'd be willing to revisit this though if there's a better alternative.
 - add some tests
 - docker images, nix flakes (a simple server example should be enough)
 - meta file support and other bevy asset reader functionality (folders)
-- readmes in crate folders
 - multiple scopes, not just read/write/admin
 - I experimented with a VCSProvider trait to verify the version of the manifest against the VCS,
   but decided against it for now, but it definitely could be useful.
