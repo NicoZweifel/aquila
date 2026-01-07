@@ -30,7 +30,8 @@ async fn main() {
     let bucket_name = env::var("S3_BUCKET").expect("S3_BUCKET env var required");
 
     // Providers
-    let storage = S3Storage::new(s3_client, bucket_name, Some("assets/v1/".to_string()))
+    let storage = S3Storage::new(s3_client, bucket_name)
+        .with_prefix("assets/v1/")
         .with_presigning(Duration::from_secs(300));
 
     // Don't use this in production! This is just for demonstration/testing purposes

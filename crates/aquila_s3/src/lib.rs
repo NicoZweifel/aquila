@@ -69,11 +69,11 @@ impl Stream for ChannelStream {
 }
 
 impl S3Storage {
-    pub fn new(client: Client, bucket: String, prefix: Option<String>) -> Self {
+    pub fn new(client: Client, bucket: String) -> Self {
         Self {
             client,
             bucket,
-            prefix: prefix.unwrap_or_default(),
+            prefix: Default::default(),
             presign_duration: None,
         }
     }
@@ -81,6 +81,12 @@ impl S3Storage {
     /// Enable presigned URLs (e.g. 5 minutes)
     pub fn with_presigning(mut self, duration: Duration) -> Self {
         self.presign_duration = Some(duration);
+        self
+    }
+
+    /// Set a prefix for organizing data in a shared bucket.
+    pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.prefix = prefix.into();
         self
     }
 
