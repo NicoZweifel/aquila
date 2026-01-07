@@ -49,7 +49,7 @@ async fn main() {
     let auth = JWTServiceAuthProvider::new(jwt_service, gh_auth);
 
     // Build
-    let app = AquilaServer::new(AquilaSeverConfig {
+    let app = AquilaServer::new(AquilaServerConfig {
         jwt_secret,
         // this is the default but just to be explicit, see above.
         callback: "/auth/callback".to_string(),
