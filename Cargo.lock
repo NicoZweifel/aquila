@@ -251,7 +251,7 @@ dependencies = [
 
 [[package]]
 name = "aquila"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "aquila_auth_github",
@@ -375,7 +375,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_server"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "aquila_core",
