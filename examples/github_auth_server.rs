@@ -23,8 +23,11 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     // Config
-    let jwt_secret = env::var("AQUILA_JWT_SECRET").expect("JWT Secret required");
     let required_org = env::var("AQUILA_GITHUB_ORG").ok();
+
+    // In Production this should be a long, random string generated and set by you.
+    // For this example, fall back to "TOP_SECRET" (the default) if none is provided.
+    let jwt_secret = env::var("AQUILA_JWT_SECRET").unwrap_or("TOP_SECRET".to_string());
 
     // Must match the callback route in the GitHub app and the server config callback, see below.
     let redirect_uri = "http://localhost:3000/auth/callback".to_string();

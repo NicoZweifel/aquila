@@ -188,6 +188,7 @@ pub struct PublishParams {
 fn default_true() -> bool {
     true
 }
+
 /// POST /manifest
 pub async fn publish_manifest<S: StorageBackend, A: AuthProvider>(
     State(state): State<AppState<S, A>>,
