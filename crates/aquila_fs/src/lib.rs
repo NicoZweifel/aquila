@@ -3,14 +3,9 @@
 //! [![Downloads](https://img.shields.io/crates/d/aquila_fs.svg)](https://crates.io/crates/aquila_fs)
 //! [![Docs](https://docs.rs/aquila_fs/badge.svg)](https://docs.rs/aquila_fs/)
 //!
-//! A local filesystem backend for Aquila.
+//! A storage backend powered by the local filesystem.
 //!
-//! This crate implements the [`StorageBackend`] trait, storing blobs
-//! and manifests directly in the file system.
-//!
-//! ## Features
-//!
-//! * **Atomic Writes**: Uses temporary files and rename operations to ensure assets are not read partially or lost during upload.
+//! Uses atomic writes to ensure assets are not read partially or lost during upload.
 //!
 //! ## Usage
 //!
