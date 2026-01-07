@@ -49,6 +49,7 @@ use axum::{
 use jwt::JwtService;
 use state::AppState;
 use tower_http::trace::TraceLayer;
+use tracing::warn;
 
 /// The builder for the Aquila Server.
 #[derive(Clone, Debug, Default)]
@@ -68,10 +69,12 @@ pub struct AquilaSeverConfig {
     pub callback: String,
 }
 
+const DEFAULT_SECRET: &str = "TOP_SECRET";
+
 impl Default for AquilaSeverConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: "TOP_SECRET".to_string(),
+            jwt_secret: DEFAULT_SECRET.to_string(),
             callback: "/auth/callback".to_string(),
         }
     }
@@ -84,6 +87,9 @@ impl AquilaServer {
             callback,
             ..
         } = self.config;
+        if jwt_secret == DEFAULT_SECRET {
+            warn!("Default JWT secret used. Consider setting `jwt_secret` to a secure value!")
+        }
         let jwt_service = JwtService::new(&jwt_secret);
         let state = AppState {
             storage,
