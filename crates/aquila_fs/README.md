@@ -1,4 +1,4 @@
-## Aquila FileSystem Storage
+## Aquila FS 
 [![Crates.io](https://img.shields.io/crates/v/aquila_fs.svg)](https://crates.io/crates/aquila_fs)
 [![Downloads](https://img.shields.io/crates/d/aquila_fs.svg)](https://crates.io/crates/aquila_fs)
 [![Docs](https://docs.rs/aquila_fs/badge.svg)](https://docs.rs/aquila_fs/)

@@ -1,4 +1,4 @@
-//! # Aquila S3 Storage
+//! # Aquila S3
 //! [![Crates.io](https://img.shields.io/crates/v/aquila_s3.svg)](https://crates.io/crates/aquila_s3)
 //! [![Downloads](https://img.shields.io/crates/d/aquila_s3.svg)](https://crates.io/crates/aquila_s3)
 //! [![Docs](https://docs.rs/aquila_s3/badge.svg)](https://docs.rs/aquila_s3/)

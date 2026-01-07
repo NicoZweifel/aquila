@@ -1,4 +1,4 @@
-## Aquila OpenDAL Storage
+## Aquila OpenDAL
 [![Crates.io](https://img.shields.io/crates/v/aquila_opendal.svg)](https://crates.io/crates/aquila_opendal)
 [![Downloads](https://img.shields.io/crates/d/aquila_opendal.svg)](https://crates.io/crates/aquila_opendal)
 [![Docs](https://docs.rs/aquila_opendal/badge.svg)](https://docs.rs/aquila_opendal/)
