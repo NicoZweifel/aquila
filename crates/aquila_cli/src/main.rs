@@ -2,12 +2,11 @@
 //! [![Crates.io](https://img.shields.io/crates/v/aquila_cli.svg)](https://crates.io/crates/aquila_cli)
 //! [![Downloads](https://img.shields.io/crates/d/aquila_cli.svg)](https://crates.io/crates/aquila_cli)
 //!
-//! A command-line interface for managing the Aquila Asset Server.
+//! A command-line interface for managing the server.
 //!
-//! Allows developers and CI/CD pipelines to interact with an Aquila instance
-//! to upload assets, publish versions and manage tokens.
+//! Allows developers and CI/CD pipelines to upload assets, publish versions and manage tokens.
 //!
-//! **NOTE**: This tool requires a running instance of the Aquila server.
+//! **NOTE**: This tool requires a running server.
 //!
 //! ## Installation
 //!
