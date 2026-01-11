@@ -54,7 +54,7 @@ use walkdir::WalkDir;
 
 #[derive(Parser)]
 #[command(name = "aquila")]
-#[command(about = "CLI for Bevy Aquila Asset Server")]
+#[command(about = "CLI for Aquila Asset Server")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
