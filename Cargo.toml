@@ -1,6 +1,6 @@
 [package]
 name = "aquila"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2024"
 description = "A modular asset server with support for oauth and multiple file backends, meant for serving game assets but could probably be used for other things too."
 license = "MIT OR Apache-2.0"
@@ -40,14 +40,14 @@ s3 = ["dep:aquila_s3"]
 opendal = ["dep:aquila_opendal"]
 
 [dependencies]
-aquila_core = { path = "crates/aquila_core",version = "0.3.0" }
+aquila_core = { path = "crates/aquila_core",version = "0.6.4" }
 aquila_server = { path = "crates/aquila_server",version = "0.6.1", optional = true }
-aquila_client = { path = "crates/aquila_client",version = "0.5.0", optional = true }
+aquila_client = { path = "crates/aquila_client",version = "0.6.4", optional = true }
 aquila_fs = { path = "crates/aquila_fs",version = "0.6.0", optional = true }
 aquila_s3 = { path = "crates/aquila_s3",version = "0.6.0", optional = true }
-aquila_opendal = { path = "crates/aquila_opendal",version = "0.3.0", optional = true }
-aquila_auth_mock = { path = "crates/aquila_auth_mock",version = "0.3.0", optional = true }
-aquila_auth_github= { path = "crates/aquila_auth_github",version = "0.3.0", optional = true }
+aquila_opendal = { path = "crates/aquila_opendal",version = "0.6.4", optional = true }
+aquila_auth_mock = { path = "crates/aquila_auth_mock",version = "0.6.4", optional = true }
+aquila_auth_github= { path = "crates/aquila_auth_github",version = "0.6.4", optional = true }
 
 [dev-dependencies]
 bevy = {version = "0.17", features = ["zstd_rust"]}

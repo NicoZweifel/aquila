@@ -1,13 +1,13 @@
 [package]
 name = "aquila_client"
-version = "0.5.0"
+version = "0.6.4"
 edition = "2024"
 description = "Aquila asset server client"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
-aquila_core = { path = "../aquila_core" ,version = "0.3.0"}
+aquila_core = { path = "../aquila_core" ,version = "0.6.4"}
 reqwest = {workspace = true, features = ["stream", "query"] }
 tokio = { workspace = true, features = ["fs"] }
 anyhow = { workspace = true }

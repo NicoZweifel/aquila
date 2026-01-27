@@ -1,6 +1,6 @@
 [package]
 name = "aquila_cli"
-version = "0.5.1"
+version = "0.6.4"
 edition = "2024"
 description = "Aquila asset server CLI"
 license = "MIT OR Apache-2.0"
@@ -11,8 +11,8 @@ name = "aquila"
 path = "src/main.rs"
 
 [dependencies]
-aquila_client = { path = "../aquila_client" ,version = "0.5.0"}
-aquila_core = { path = "../aquila_core" ,version = "0.3.0"}
+aquila_client = { path = "../aquila_client" ,version = "0.6.4"}
+aquila_core = { path = "../aquila_core" ,version = "0.6.4"}
 clap = { version = "4.5", features = ["derive", "env"] }
 tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
