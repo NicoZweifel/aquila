@@ -32,7 +32,13 @@ impl IntoResponse for ApiError {
             .downcast_ref::<StorageError>()
             .map(|storage_err| match storage_err {
                 StorageError::NotFound(_) => (StatusCode::NOT_FOUND, "Asset not found".to_string()),
-                _ => (StatusCode::INTERNAL_SERVER_ERROR, storage_err.to_string()),
+                _ => {
+                    error!("Internal Server Storage Error: {:?}", self.0);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal Server Storage Error".to_string(),
+                    )
+                }
             })
             .unwrap_or_else(|| {
                 self.0
