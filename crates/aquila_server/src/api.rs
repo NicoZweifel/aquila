@@ -38,10 +38,13 @@ impl IntoResponse for ApiError {
                 self.0
                     .downcast_ref::<AuthError>()
                     .map(|_| (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()))
-                    .unwrap_or((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Internal Server Error: {}", self.0),
-                    ))
+                    .unwrap_or_else(|| {
+                        error!("Internal Server Error: {:?}", self.0);
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Internal Server Error".to_string(),
+                        )
+                    })
             })
             .into_response()
     }

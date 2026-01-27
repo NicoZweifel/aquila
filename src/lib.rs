@@ -32,7 +32,7 @@
 //! If you ship public read-only tokens to users, make sure you are aware of what that entails, e.g., how to invalidate and ship new ones in the case of abuse.
 //!
 //! > [!IMPORTANT]
-//! > Make sure you vet any auth providers and OAuth applications and its permissions that you intend to use thoroughly before using them in production, e.g. 
+//! > Make sure you vet any auth providers and OAuth applications and its permissions that you intend to use thoroughly before using them in production, e.g.
 //! > verify that you have configured an organization or scopes in the oauth app/provider.
 //!
 //! ## Ecosystem
