@@ -251,7 +251,7 @@ dependencies = [
 
 [[package]]
 name = "aquila"
-version = "0.7.0-rc.3"
+version = "0.7.0-rc.4"
 dependencies = [
  "anyhow",
  "aquila_auth_github",
@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_cli"
-version = "0.7.0-rc.1"
+version = "0.7.0-rc.3"
 dependencies = [
  "anyhow",
  "aquila_client",
@@ -349,10 +349,7 @@ version = "0.7.0-rc.1"
 dependencies = [
  "aquila_core",
  "bollard",
- "chrono",
  "futures",
- "tokio",
- "tracing",
  "uuid",
 ]
 

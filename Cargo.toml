@@ -1,6 +1,6 @@
 [package]
 name = "aquila"
-version = "0.7.0-rc.3"
+version = "0.7.0-rc.4"
 edition = "2024"
 description = "A modular asset server with support for oauth and multiple file backends, meant for serving game assets but could probably be used for other things too."
 license = "MIT OR Apache-2.0"
@@ -45,8 +45,8 @@ aws = ["dep:aquila_compute_aws"]
 
 [dependencies]
 aquila_core = { path = "crates/aquila_core", version = "0.7.0-rc.1" }
-aquila_server = { path = "crates/aquila_server", version = "0.7.0-rc.1", optional = true }
-aquila_client = { path = "crates/aquila_client", version = "0.7.0-rc.1", optional = true }
+aquila_server = { path = "crates/aquila_server", version = "0.7.0-rc.3", optional = true }
+aquila_client = { path = "crates/aquila_client", version = "0.7.0-rc.3", optional = true }
 aquila_fs = { path = "crates/aquila_fs", version = "0.7.0-rc.1", optional = true }
 aquila_s3 = { path = "crates/aquila_s3", version = "0.7.0-rc.1", optional = true }
 aquila_opendal = { path = "crates/aquila_opendal", version = "0.7.0-rc.1", optional = true }

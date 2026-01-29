@@ -10,7 +10,4 @@ repository = "https://github.com/NicoZweifel/aquila"
 aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.1"}
 bollard = "0.20.0"
 futures = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
 uuid = { workspace = true }
-chrono = {workspace = true}
