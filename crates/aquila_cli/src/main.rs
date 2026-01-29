@@ -42,14 +42,16 @@
 //!     ```
 
 use aquila_client::AquilaClient;
-use aquila_core::manifest::{AssetInfo, AssetManifest};
+use aquila_core::prelude::*;
+
 use chrono::Utc;
 use clap::{Parser, Subcommand};
 use rand::Rng;
 use rand::distr::Alphanumeric;
+use walkdir::WalkDir;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
-use walkdir::WalkDir;
 
 #[derive(Parser)]
 #[command(name = "aquila")]
@@ -105,12 +107,18 @@ enum Commands {
         output: PathBuf,
     },
     /// Fetch and display a manifest for a specific version
-    GetManifest {
-        version: String,
+    Manifest { version: String },
+    /// Compute job commands (run, attach).
+    Job {
+        #[command(subcommand)]
+        command: ComputeCommands,
     },
+    /// Start a login flow, if supported by the server.
     Login,
+    /// Generate a JWT Secret for use with the server.
     GenerateSecret,
-    MintToken {
+    /// Mint a long-lived token for a specific subject, e.g., a game client or build pipeline.
+    Mint {
         /// The subject name (e.g. "game_client_v1")
         subject: String,
 
@@ -121,6 +129,48 @@ enum Commands {
         /// Optional scopes (comma separated, e.g. "read,write")
         #[arg(short = 'S', long, value_delimiter = ',', default_value = "read")]
         scopes: Vec<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ComputeCommands {
+    /// Run a new compute job
+    Run {
+        /// Image to run, can be [`None`] if the backend uses a base image.
+        #[arg(short, long)]
+        img: Option<String>,
+
+        /// The queue to use for the job.
+        ///
+        /// [`None`] if the [`ComputeBackend`] doesn't support it, or if using the default queue.
+        #[arg(short, long)]
+        queue: Option<String>,
+
+        /// Command to execute
+        #[arg(last = true)]
+        cmd: Vec<String>,
+
+        /// Attach immediately after starting
+        #[arg(short, long)]
+        attach: bool,
+
+        /// GPU driver to use. If [`None`], no gpu is attached.
+        #[arg(short, long)]
+        gpu: Option<String>,
+
+        /// Remove the job/container after it finishes.
+        #[arg(short, long)]
+        remove: bool,
+
+        /// Environment variables (e.g. --env REPO_URL=... --env FOO=bar)
+        #[arg(short, long, value_name = "KEY=VALUE")]
+        env: Vec<String>,
+    },
+
+    /// Attach to a running compute job
+    Attach {
+        /// Job ID
+        id: String,
     },
 }
 
@@ -167,7 +217,7 @@ async fn main() -> anyhow::Result<()> {
         } => {
             println!("🚀 Publishing version '{version}' from {dir:?}...");
             if stream {
-                println!("ℹ️  Using streaming upload mode");
+                println!("ℹ️ Using streaming upload mode");
             }
 
             let mut assets = HashMap::new();
@@ -224,9 +274,9 @@ async fn main() -> anyhow::Result<()> {
 
             println!("✅ Successfully published version {version} with {count} assets.",);
             if latest {
-                println!("🏷️  Tagged as 'latest'.");
+                println!("🏷️ Tagged as 'latest'.");
             } else {
-                println!("ℹ️  Skipped 'latest' tag update.");
+                println!("ℹ️ Skipped 'latest' tag update.");
             }
         }
         Commands::Download { hash, output } => {
@@ -240,12 +290,57 @@ async fn main() -> anyhow::Result<()> {
 
             println!("✅ Saved to {output:?}");
         }
-        Commands::GetManifest { version } => {
+        Commands::Manifest { version } => {
             println!("🔍 Fetching manifest for version '{}'...", version);
             let manifest = client.fetch_manifest(&version).await?;
             println!("{}", serde_json::to_string_pretty(&manifest)?);
         }
-        Commands::MintToken {
+        Commands::Job { command } => match command {
+            ComputeCommands::Run {
+                img,
+                queue,
+                cmd,
+                attach,
+                gpu,
+                remove,
+                env,
+            } => {
+                let env: Vec<(String, String)> = env
+                    .into_iter()
+                    .filter_map(|s| {
+                        s.split_once('=')
+                            .map(|(k, v)| (k.to_string(), v.to_string()))
+                    })
+                    .collect();
+
+                let req = JobRequest {
+                    img,
+                    queue,
+                    cmd,
+                    gpu,
+                    remove,
+                    env,
+                    ..Default::default()
+                };
+
+                let res = client.run(req).await?;
+                println!("⚙️ Job started: {} {:?}", res.id, res.status);
+
+                if attach {
+                    println!("🪝 Attaching...");
+                    if let Err(e) = client.attach(&res.id).await {
+                        eprintln!("❌ Attach interrupted: {}", e);
+                    }
+                    println!("✅ Job finished!");
+                }
+            }
+
+            ComputeCommands::Attach { id } => {
+                println!("🪝 Attaching to job {}...", id);
+                client.attach(&id).await?;
+            }
+        },
+        Commands::Mint {
             subject,
             duration,
             scopes,

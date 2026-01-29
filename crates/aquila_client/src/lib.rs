@@ -13,7 +13,7 @@
 //!
 //! ```no_run
 //!  use aquila_client::AquilaClient;
-//!  use aquila_core::manifest::{AssetManifest, AssetInfo};
+//!  use aquila_core::asset::{AssetManifest, AssetInfo};
 //!  use std::path::Path;
 //!  use std::collections::HashMap;
 //!
@@ -42,11 +42,13 @@
 //! }
 //! ```
 
-use aquila_core::manifest::AssetManifest;
-use reqwest::{Client, StatusCode};
+use aquila_core::prelude::*;
+use futures_util::StreamExt;
+use reqwest::{Client, StatusCode, Url};
 use sha2::{Digest, Sha256};
+use std::io::Write;
 use std::path::Path;
-
+use std::str::FromStr;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
@@ -67,6 +69,15 @@ pub enum AquilaClientError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Connection error: {0}")]
+    Connection(String),
+
+    #[error("Invalid URL: {0}")]
+    UrlParse(#[from] url::ParseError),
+
+    #[error("WebSocket error: {0}")]
+    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
 }
 
 pub type Result<T> = std::result::Result<T, AquilaClientError>;
@@ -258,5 +269,95 @@ impl AquilaClient {
 
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
+    }
+
+    pub async fn run(&self, task: JobRequest) -> Result<JobResult> {
+        let url = format!("{}/jobs/run", self.base_url);
+        let response = self
+            .auth_request(self.client.post(&url))
+            .json(&task)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let data: JobResult = response
+            .json()
+            .await
+            .map_err(|_| AquilaClientError::Validation("Failed to parse job result".into()))?;
+
+        Ok(data)
+    }
+
+    pub async fn attach(&self, job_id: &str) -> Result<()> {
+        let url = format!("{}/jobs/{}/attach", self.base_url, job_id);
+        // Switch protocol: http(s) -> ws(s)
+        let ws_url = if Url::from_str(url.as_str())?.scheme() == "https" {
+            url.to_string().replace("https://", "wss://")
+        } else {
+            url.to_string().replace("http://", "ws://")
+        };
+
+        let (ws_stream, _) = tokio_tungstenite::connect_async(ws_url).await?;
+
+        // We only care about reading for now
+        let (_, mut read) = ws_stream.split();
+
+        while let Some(msg) = read.next().await {
+            match msg {
+                Ok(tokio_tungstenite::tungstenite::Message::Binary(bin)) => {
+                    let log_entry: LogOutput = match serde_json::from_slice(&bin) {
+                        Ok(l) => l,
+                        Err(e) => {
+                            eprintln!("[Client Error] Failed to deserialize log: {}", e);
+                            continue;
+                        }
+                    };
+
+                    // 2. Format & Print
+                    // Format: [TIMESTAMP] MESSAGE
+                    let prefix = if let Some(ts) = &log_entry.timestamp {
+                        format!("[{}] ", ts)
+                    } else {
+                        String::new()
+                    };
+
+                    // 3. Write to correct stream
+                    match log_entry.source {
+                        LogSource::Stdout => {
+                            print!("{}{}", prefix, log_entry.message);
+                            let _ = std::io::stdout().flush();
+                        }
+                        LogSource::Stderr => {
+                            eprint!("{}{}", prefix, log_entry.message);
+                            let _ = std::io::stderr().flush();
+                        }
+                        LogSource::Console => {
+                            // System messages or similar
+                            println!("\x1b[90m{}{}\x1b[0m", prefix, log_entry.message); // Dark gray
+                        }
+                    }
+                }
+
+                Ok(tokio_tungstenite::tungstenite::Message::Text(txt)) => {
+                    // Handle server errors sent as text (e.g. "Error: ...")
+                    eprintln!("[System] {}", txt);
+                }
+                Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => break,
+                Err(e) => {
+                    return Err(AquilaClientError::Connection(format!(
+                        "Connection error: {}",
+                        e
+                    )));
+                }
+                _ => {} // Ignore Ping/Pong
+            }
+        }
+
+        Ok(())
     }
 }

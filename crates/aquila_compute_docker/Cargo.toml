@@ -1,0 +1,16 @@
+[package]
+name = "aquila_compute_docker"
+version = "0.6.4"
+edition = "2024"
+description = "Docker compute backend for the aquila server"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/NicoZweifel/aquila"
+
+[dependencies]
+aquila_core = { path = "../aquila_core" ,version = "0.6.4"}
+bollard = "0.20.0"
+futures = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = {workspace = true}

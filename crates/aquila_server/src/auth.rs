@@ -1,25 +1,23 @@
+use crate::api::ApiError;
 use crate::jwt::JwtService;
 use crate::state::AppState;
+
 use aquila_core::prelude::*;
-use axum::{
-    extract::FromRequestParts,
-    http::{StatusCode, request::Parts},
-};
+use axum::{extract::FromRequestParts, http::request::Parts};
 
 /// A wrapper struct indicating a request has been authenticated.
 #[derive(Clone, Debug)]
 pub struct AuthenticatedUser(pub User);
 
-impl<S, A> FromRequestParts<AppState<S, A>> for AuthenticatedUser
+impl<S> FromRequestParts<AppState<S>> for AuthenticatedUser
 where
-    S: StorageBackend,
-    A: AuthProvider,
+    S: AquilaServices,
 {
-    type Rejection = (StatusCode, String);
+    type Rejection = ApiError;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<S, A>,
+        state: &AppState<S>,
     ) -> Result<Self, Self::Rejection> {
         let token = parts
             .headers
@@ -37,9 +35,9 @@ where
             })
             .unwrap_or("");
 
-        match state.auth.verify(token).await {
+        match state.services.auth().verify(token).await {
             Ok(user) => Ok(AuthenticatedUser(user)),
-            Err(_) => Err((StatusCode::UNAUTHORIZED, "Unauthorized".to_string())),
+            Err(e) => Err(ApiError::from(e)),
         }
     }
 }
@@ -61,11 +59,15 @@ impl<P: AuthProvider> JWTServiceAuthProvider<P> {
 
 impl<P: AuthProvider> AuthProvider for JWTServiceAuthProvider<P> {
     async fn verify(&self, token: &str) -> Result<User, AuthError> {
-        if let Ok(user) = self.jwt_service.verify(token) {
-            return Ok(user);
+        if token.is_empty() {
+            return Err(AuthError::Missing);
         }
 
-        self.provider.verify(token).await
+        match self.jwt_service.verify(token) {
+            Ok(user) => Ok(user),
+            Err(AuthError::Expired) => Err(AuthError::Expired),
+            Err(_) => self.provider.verify(token).await,
+        }
     }
 
     fn get_login_url(&self) -> Option<String> {

@@ -6,7 +6,6 @@ use axum::{
     routing::{get, post, put},
 };
 use tower_http::trace::TraceLayer;
-use tracing::warn;
 
 /// The builder for the Aquila Server.
 #[derive(Clone, Debug, Default)]
@@ -22,46 +21,23 @@ impl AquilaServer {
 
 #[derive(Clone, Debug)]
 pub struct AquilaServerConfig {
-    /// The secret used to for JWT tokens.
-    ///
-    /// Defaults to `TOP_SECRET`.
-    ///
-    /// **NOTE:** This should be set to a secure value!
-    pub jwt_secret: String,
     /// The callback URL for the auth provider.
     ///
     /// Defaults to `/auth/callback`.
     pub callback: String,
 }
 
-const DEFAULT_SECRET: &str = "TOP_SECRET";
-
 impl Default for AquilaServerConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: DEFAULT_SECRET.to_string(),
             callback: "/auth/callback".to_string(),
         }
     }
 }
 
 impl AquilaServer {
-    pub fn build<S: StorageBackend, A: AuthProvider>(self, storage: S, auth: A) -> Router {
-        let AquilaServerConfig {
-            jwt_secret,
-            callback,
-            ..
-        } = self.config;
-        if jwt_secret == DEFAULT_SECRET {
-            warn!("Default JWT secret used. Consider setting `jwt_secret` to a secure value!")
-        }
-        let jwt_service = JwtService::new(&jwt_secret);
-        let state = AppState {
-            storage,
-            auth,
-            jwt_service,
-        };
-
+    pub fn build<S: AquilaServices>(self, services: S) -> Router {
+        let AquilaServerConfig { callback, .. } = self.config;
         Router::new()
             .route("/health", get(|| async { "OK" }))
             .route("/auth/login", get(api::auth_login))
@@ -72,8 +48,10 @@ impl AquilaServer {
             .route("/assets", post(api::upload_asset))
             .route("/manifest/{version}", get(api::get_manifest))
             .route("/manifest", post(api::publish_manifest))
+            .route("/jobs/run", post(api::run))
+            .route("/jobs/{id}/attach", get(api::attach))
             .layer(DefaultBodyLimit::disable())
             .layer(TraceLayer::new_for_http())
-            .with_state(state)
+            .with_state(AppState { services })
     }
 }

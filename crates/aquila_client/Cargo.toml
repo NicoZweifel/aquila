@@ -2,7 +2,7 @@
 name = "aquila_client"
 version = "0.6.4"
 edition = "2024"
-description = "Aquila asset server client"
+description = "Aquila server client"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
@@ -13,7 +13,11 @@ tokio = { workspace = true, features = ["fs"] }
 anyhow = { workspace = true }
 sha2 = {workspace = true}
 hex = {workspace = true}
+futures-util = "0.3"
+tokio-tungstenite = "0.28.0"
 tokio-util = "0.7"
 thiserror = "2.0"
-serde = { version = "1.0.228", features = ["derive"] }
+serde ={workspace = true}
+serde_json = {workspace = true}
+url = "2.5.7"
 

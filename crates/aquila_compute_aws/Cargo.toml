@@ -1,0 +1,17 @@
+[package]
+name = "aquila_compute_aws"
+version = "0.6.4"
+edition = "2024"
+description = "AWS Batch compute backend for the aquila server"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/NicoZweifel/aquila"
+
+[dependencies]
+aws-sdk-batch = "1.1"
+aws-sdk-cloudwatchlogs = "1.1"
+aquila_core = { path = "../aquila_core" ,version = "0.6.4"}
+aws-config = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+chrono = {workspace = true}

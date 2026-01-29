@@ -2,7 +2,7 @@
 name = "bevy_aquila"
 version = "0.6.4"
 edition = "2024"
-description = "Aquila asset server bevy plugin"
+description = "Aquila server bevy plugin"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 

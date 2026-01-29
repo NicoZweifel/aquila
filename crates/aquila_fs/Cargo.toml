@@ -2,7 +2,7 @@
 name = "aquila_fs"
 version = "0.6.4"
 edition = "2024"
-description = "Aquila asset server file system file backend implementation"
+description = "Aquila server file system file backend implementation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 

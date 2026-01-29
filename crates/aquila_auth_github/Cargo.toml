@@ -2,17 +2,14 @@
 name = "aquila_auth_github"
 version = "0.6.4"
 edition = "2024"
-description = "Aquila asset server github auth provider implementation"
+description = "Aquila server github auth provider implementation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
 aquila_core = { path = "../aquila_core" ,version = "0.6.4"}
-reqwest = { workspace = true, features = ["json", "form", "rustls"], version = "1.0.0" }
+reqwest = { workspace = true, features = ["json", "form", "rustls"]}
 serde = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
-serde_json = { workspace = true }
-anyhow = { workspace = true }
-tokio = { workspace = true }
-tracing = "0.1"
+

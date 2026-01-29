@@ -1,38 +1,23 @@
-//! # S3 Server Example
+//! # Docker Server Example
 //!
-//! Showcases a [`S3Storage`] backend server with Presigned URLs enabled.
-//!
-//! ## Requirements
-//!
-//! Set the following environment variables:
-//! - `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (or use `aws configure`)
-//! - `S3_BUCKET`: The name of your bucket.
+//! Showcases a minimal [`AquilaServer`] using the local [`FileSystemStorage`], a [`DockerComputeBackend`] and mock authentication.
 //!
 //! ## Usage
 //!
 //! ```sh
-//! cargo run --example s3_server --features "server s3 mock_auth"
+//! cargo run --example simple_server --features "server fs mock_auth"
 //! ```
 
 use aquila::prelude::*;
-use aws_config::BehaviorVersion;
+use aquila_compute_docker::DockerComputeBackend;
 use std::env;
-use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    // Config
-    let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
-    let s3_client = aws_sdk_s3::Client::new(&aws_config);
-
-    let bucket_name = env::var("S3_BUCKET").expect("S3_BUCKET env var required");
-
     // Providers & Services
-    let storage = S3Storage::new(s3_client, bucket_name)
-        .with_prefix("assets/v1/")
-        .with_presigning(Duration::from_secs(300));
+    let storage = FileSystemStorage::new("./aquila_data");
 
     // Don't use this in production! This is just for demonstration/testing purposes
     let auth = AllowAllAuth; // e.g., use GithubAuthProvider or your own instead
@@ -40,8 +25,7 @@ async fn main() {
     // JWT is not required for this example, see `github_auth_server.rs` for an example using `GithubAuthProvider` and `JwtServiceAuthProvider`.
     let jwt = NoJwtBackend;
 
-    // Compute is not required for this example, see `docker_server.rs` for an example using `DockerComputeBackend`.
-    let compute = NoComputeBackend;
+    let compute = DockerComputeBackend::connect_local().await.unwrap();
 
     let services = CoreServices {
         storage,
@@ -50,7 +34,7 @@ async fn main() {
         compute,
     };
 
-    // Build
+    // Build App
     let app = AquilaServer::default().build(services);
 
     // Serve

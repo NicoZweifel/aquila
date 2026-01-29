@@ -2,7 +2,7 @@
 name = "aquila_cli"
 version = "0.6.4"
 edition = "2024"
-description = "Aquila asset server CLI"
+description = "Aquila server CLI"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
