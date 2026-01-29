@@ -9,8 +9,8 @@ repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
 serde = { workspace = true }
-bytes = {workspace = true}
-chrono = {workspace = true}
-serde_json = {workspace = true}
-futures = {workspace = true}
+bytes = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+futures = { workspace = true }
 thiserror = "2.0"
