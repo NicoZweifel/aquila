@@ -93,7 +93,7 @@ required-features = ["server", "fs", "mock_auth", "docker"]
 
 [[example]]
 name = "aws_server"
-required-features = ["server","s3", "aws", "mock_auth"]
+required-features = ["server", "s3", "aws", "mock_auth"]
 
 
 
