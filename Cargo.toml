@@ -1,6 +1,6 @@
 [package]
 name = "aquila"
-version = "0.6.5"
+version = "0.7.0-rc.1"
 edition = "2024"
 description = "A modular asset server with support for oauth and multiple file backends, meant for serving game assets but could probably be used for other things too."
 license = "MIT OR Apache-2.0"
@@ -24,6 +24,8 @@ sha2 = "0.10"
 hex = "0.4"
 axum = "0.8"
 reqwest = { version = "0.13", features = ["json", "stream"] }
+uuid = { version = "1.19.0", features = ["v4"] }
+aws-config = "1.8"
 
 [features]
 default = []
@@ -33,41 +35,45 @@ server = ["dep:aquila_server"]
 client = ["dep:aquila_client"]
 
 # Implementation features
-fs= ["dep:aquila_fs"]
+fs = ["dep:aquila_fs"]
 mock_auth = ["dep:aquila_auth_mock"]
 github_auth = ["dep:aquila_auth_github"]
 s3 = ["dep:aquila_s3"]
 opendal = ["dep:aquila_opendal"]
+docker = ["dep:aquila_compute_docker"]
+aws = ["dep:aquila_compute_aws"]
 
 [dependencies]
-aquila_core = { path = "crates/aquila_core",version = "0.6.4" }
-aquila_server = { path = "crates/aquila_server",version = "0.6.1", optional = true }
-aquila_client = { path = "crates/aquila_client",version = "0.6.4", optional = true }
-aquila_fs = { path = "crates/aquila_fs",version = "0.6.0", optional = true }
-aquila_s3 = { path = "crates/aquila_s3",version = "0.6.0", optional = true }
-aquila_opendal = { path = "crates/aquila_opendal",version = "0.6.4", optional = true }
-aquila_auth_mock = { path = "crates/aquila_auth_mock",version = "0.6.4", optional = true }
-aquila_auth_github= { path = "crates/aquila_auth_github",version = "0.6.4", optional = true }
+aquila_core = { path = "crates/aquila_core", version = "0.7.0-rc.1" }
+aquila_server = { path = "crates/aquila_server", version = "0.7.0-rc.1", optional = true }
+aquila_client = { path = "crates/aquila_client", version = "0.7.0-rc.1", optional = true }
+aquila_fs = { path = "crates/aquila_fs", version = "0.7.0-rc.1", optional = true }
+aquila_s3 = { path = "crates/aquila_s3", version = "0.7.0-rc.1", optional = true }
+aquila_opendal = { path = "crates/aquila_opendal", version = "0.7.0-rc.1", optional = true }
+aquila_auth_mock = { path = "crates/aquila_auth_mock", version = "0.7.0-rc.1", optional = true }
+aquila_auth_github = { path = "crates/aquila_auth_github", version = "0.7.0-rc.1", optional = true }
+aquila_compute_aws = { path = "crates/aquila_compute_aws", version = "0.7.0-rc.1", optional = true }
+aquila_compute_docker = { path = "crates/aquila_compute_docker", version = "0.7.0-rc.1", optional = true }
 
 [dev-dependencies]
-bevy = {version = "0.17", features = ["zstd_rust"]}
-bevy_aquila ={path = "crates/bevy_aquila"}
+bevy = { version = "0.17", features = ["zstd_rust"] }
+bevy_aquila = { path = "crates/bevy_aquila" }
 axum = { workspace = true }
 tokio = { workspace = true }
-chrono = {workspace = true}
-anyhow = {workspace = true}
-opendal = { version = "0.55"}
+chrono = { workspace = true }
+anyhow = { workspace = true }
+opendal = { version = "0.55" }
 tracing-subscriber = "0.3"
-aws-config = "1.1"
+aws-config = { workspace = true }
 aws-sdk-s3 = "1.1"
 
 [[example]]
 name = "simple_server"
-required-features =["server", "fs", "mock_auth"]
+required-features = ["server", "fs", "mock_auth"]
 
 [[example]]
 name = "simple_client"
-required-features =["client"]
+required-features = ["client"]
 
 [[example]]
 name = "s3_server"
@@ -80,5 +86,15 @@ required-features = ["server", "fs", "github_auth"]
 [[example]]
 name = "opendal_server"
 required-features = ["server", "opendal", "mock_auth"]
+
+[[example]]
+name = "docker_server"
+required-features = ["server", "fs", "mock_auth", "docker"]
+
+[[example]]
+name = "aws_server"
+required-features = ["server","s3", "aws", "mock_auth"]
+
+
 
 

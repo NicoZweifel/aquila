@@ -40,6 +40,7 @@ use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::{ByteStream, SdkBody};
 use bytes::Bytes;
+use futures::stream::BoxStream;
 use futures::{Stream, StreamExt, TryStreamExt};
 use http_body_util::StreamBody;
 use hyper::body::Frame;
@@ -114,7 +115,7 @@ impl S3Storage {
                 Ok(true)
             }
             Err(SdkError::ServiceError(err)) if err.err().is_not_found() => Ok(false),
-            Err(err) => Err(StorageError::Generic(format!(
+            Err(err) => Err(StorageError::System(format!(
                 "S3 Head Object Error: {err:?}"
             ))),
         }
@@ -141,7 +142,7 @@ impl StorageBackend for S3Storage {
             .await
             .map_err(|e| {
                 error!("Failed to upload blob: {e:?}");
-                StorageError::Generic(format!("S3 Upload Error: {e:?}"))
+                StorageError::System(format!("S3 Upload Error: {e:?}"))
             })?;
 
         debug!("Upload successful");
@@ -152,7 +153,7 @@ impl StorageBackend for S3Storage {
     async fn write_stream(
         &self,
         hash: &str,
-        mut stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        mut stream: BoxStream<'static, Result<Bytes, std::io::Error>>,
         content_length: Option<u64>,
     ) -> Result<bool, StorageError> {
         let key = self.key(hash);
@@ -190,7 +191,7 @@ impl StorageBackend for S3Storage {
 
         req.send().await.map_err(|e| {
             error!("Failed to upload stream: {e:?}");
-            StorageError::Generic(format!("S3 Upload Error: {e:?}"))
+            StorageError::System(format!("S3 Upload Error: {e:?}"))
         })?;
 
         Ok(true)
@@ -212,7 +213,7 @@ impl StorageBackend for S3Storage {
             .await
             .map_err(|e| {
                 error!("Failed to upload manifest: {:?}", e);
-                StorageError::Generic(format!("S3 Manifest Upload Error: {:?}", e))
+                StorageError::System(format!("S3 Manifest Upload Error: {:?}", e))
             })?;
 
         Ok(())
@@ -236,7 +237,7 @@ impl StorageBackend for S3Storage {
             Ok(output) => {
                 let data = output.body.collect().await.map_err(|e| {
                     error!("Failed to stream body: {:?}", e);
-                    StorageError::Generic(format!("Failed to stream S3 body: {}", e))
+                    StorageError::System(format!("Failed to stream S3 body: {}", e))
                 })?;
                 Ok(data.into_bytes())
             }
@@ -247,7 +248,7 @@ impl StorageBackend for S3Storage {
                     Err(StorageError::NotFound(path.to_string()))
                 } else {
                     error!("S3 Service Error during read: {:?}", err);
-                    Err(StorageError::Generic(format!(
+                    Err(StorageError::System(format!(
                         "S3 Service Error: {:?}",
                         inner
                     )))
@@ -255,7 +256,7 @@ impl StorageBackend for S3Storage {
             }
             Err(e) => {
                 error!("Unexpected S3 Error: {:?}", e);
-                Err(StorageError::Generic(format!("S3 Error: {:?}", e)))
+                Err(StorageError::System(format!("S3 Error: {:?}", e)))
             }
         }
     }
@@ -277,7 +278,7 @@ impl StorageBackend for S3Storage {
         };
 
         let cfg = PresigningConfig::expires_in(duration)
-            .map_err(|e| StorageError::Generic(format!("Invalid presign config: {}", e)))?;
+            .map_err(|e| StorageError::System(format!("Invalid presign config: {}", e)))?;
 
         let req = self
             .client
@@ -288,7 +289,7 @@ impl StorageBackend for S3Storage {
             .await
             .map_err(|e| {
                 error!("Failed to presign URL: {:?}", e);
-                StorageError::Generic(format!("S3 Presign Error: {}", e))
+                StorageError::System(format!("S3 Presign Error: {}", e))
             })?;
 
         Ok(Some(req.uri().to_string()))
@@ -307,7 +308,7 @@ impl StorageBackend for S3Storage {
             .await
             .map_err(|e| {
                 error!("Failed to delete file: {:?}", e);
-                StorageError::Generic(format!("S3 Delete Error: {:?}", e))
+                StorageError::System(format!("S3 Delete Error: {:?}", e))
             })?;
         Ok(())
     }

@@ -22,13 +22,16 @@ use std::env;
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    // Config
-    let required_org = env::var("AQUILA_GITHUB_ORG").ok();
-
+    // Auth
+    //
     // In Production this should be a long, random string generated and set by you.
+    // You can generate one with the cli or with `openssl rand -base64 32`.
+    //
     // For this example, fall back to "TOP_SECRET" (the default) if none is provided.
     let jwt_secret = env::var("AQUILA_JWT_SECRET").unwrap_or("TOP_SECRET".to_string());
 
+    // Config
+    let required_org = env::var("AQUILA_GITHUB_ORG").ok();
     // Must match the callback route in the GitHub app and the server config callback, see below.
     let redirect_uri = "http://localhost:3000/auth/callback".to_string();
     let gh_cfg = env::var("GITHUB_CLIENT_ID")
@@ -42,19 +45,26 @@ async fn main() {
         })
         .ok();
 
-    // Providers
+    // Providers & Services
     let storage = FileSystemStorage::new("./aquila_data");
     let gh_auth = GithubAuthProvider::new(gh_cfg);
-    let jwt_service = JwtService::new(&jwt_secret);
-    let auth = JWTServiceAuthProvider::new(jwt_service, gh_auth);
+    let jwt = JwtService::new(&jwt_secret);
+    let auth = JWTServiceAuthProvider::new(jwt.clone(), gh_auth);
+    let compute = NoComputeBackend;
+
+    let services = CoreServices {
+        storage,
+        auth,
+        jwt,
+        compute,
+    };
 
     // Build
     let app = AquilaServer::new(AquilaServerConfig {
-        jwt_secret,
         // this is the default but just to be explicit, see above.
         callback: "/auth/callback".to_string(),
     })
-    .build(storage, auth);
+    .build(services);
 
     // Serve
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());

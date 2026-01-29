@@ -1,13 +1,13 @@
 [package]
 name = "aquila_fs"
-version = "0.6.4"
+version = "0.7.0-rc.1"
 edition = "2024"
-description = "Aquila asset server file system file backend implementation"
+description = "Aquila server file system file backend implementation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
-aquila_core = { path = "../aquila_core" ,version = "0.6.4"}
+aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.1"}
 futures = {workspace = true}
 bytes = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
