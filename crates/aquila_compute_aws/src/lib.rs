@@ -203,6 +203,7 @@ impl ComputeBackend for AwsBatchBackend {
             .map_err(|e| ComputeError::System(e.to_string()))
     }
 
+    // TODO refactor this into sensible pieces
     async fn attach(
         &self,
         job_id: &str,
