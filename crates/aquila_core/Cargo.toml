@@ -1,6 +1,6 @@
 [package]
 name = "aquila_core"
-version = "0.7.0-rc.1"
+version = "0.7.0-rc.5"
 edition = "2024"
 description = "Core module of aquila asset server"
 license = "MIT OR Apache-2.0"

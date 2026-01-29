@@ -62,7 +62,7 @@ impl AwsBatchBackend {
             .send()
             .await
             .map_err(|e| {
-                ComputeError::System(format!("Failed to describe base definition: {}", e))
+                ComputeError::System(format!("Failed to describe base definition: {:?}", e))
             })?;
 
         let base_def = desc.job_definitions().first().ok_or_else(|| {
@@ -151,7 +151,7 @@ impl AwsBatchBackend {
             .send()
             .await
             .map(|r| r.job_definition_arn)
-            .map_err(|e| ComputeError::System(format!("Failed to register definition: {}", e)))?
+            .map_err(|e| ComputeError::System(format!("Failed to register definition: {:?}", e)))?
             .map(|x| Ok(x))
             .unwrap_or(Err(ComputeError::System(
                 "Failed to register definition".to_string(),

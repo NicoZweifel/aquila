@@ -1,13 +1,13 @@
 [package]
 name = "aquila_auth_github"
-version = "0.7.0-rc.1"
+version = "0.7.0-rc.5"
 edition = "2024"
 description = "Aquila server github auth provider implementation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
-aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.1"}
+aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.5"}
 reqwest = { workspace = true, features = ["json", "form", "rustls"]}
 serde = { workspace = true }
 sha2 = { workspace = true }
