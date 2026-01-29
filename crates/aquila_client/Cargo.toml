@@ -1,6 +1,6 @@
 [package]
 name = "aquila_client"
-version = "0.7.0-rc.1"
+version = "0.7.0-rc.3"
 edition = "2024"
 description = "Aquila server client"
 license = "MIT OR Apache-2.0"
