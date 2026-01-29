@@ -7,17 +7,17 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
-aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.6"}
-reqwest = {workspace = true, features = ["stream", "query"] }
+aquila_core = { path = "../aquila_core", version = "0.7.0-rc.6" }
+reqwest = { workspace = true, features = ["stream", "query"] }
 tokio = { workspace = true, features = ["fs"] }
 anyhow = { workspace = true }
-sha2 = {workspace = true}
-hex = {workspace = true}
+sha2 = { workspace = true }
+hex = { workspace = true }
 futures-util = "0.3"
-tokio-tungstenite = { version = "0.28.0" , features = ["native-tls"] }
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 tokio-util = "0.7"
 thiserror = "2.0"
-serde ={workspace = true}
-serde_json = {workspace = true}
+serde = { workspace = true }
+serde_json = { workspace = true }
 url = "2.5.7"
 
