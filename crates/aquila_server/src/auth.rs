@@ -48,6 +48,91 @@ where
     }
 }
 
+/// Trait to define the required scope for an extractor.
+pub trait ScopeRequirement: Send + Sync + 'static {
+    const SCOPE: &'static str;
+}
+
+/// An extractor that requires the user to have a specific scope (or ADMIN).
+/// Fails with 403 Forbidden if the scope is missing.
+pub struct ScopedUser<T: ScopeRequirement> {
+    pub user: User,
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<T: ScopeRequirement> ScopedUser<T> {
+    pub fn new(user: User) -> Self {
+        Self {
+            user,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T, S> FromRequestParts<AppState<S>> for ScopedUser<T>
+where
+    T: ScopeRequirement,
+    S: AquilaServices,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState<S>,
+    ) -> Result<Self, Self::Rejection> {
+        let AuthenticatedUser(user) = AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        let required = T::SCOPE;
+        if user
+            .scopes
+            .iter()
+            .any(|s| s == scopes::ADMIN || s == required)
+        {
+            Ok(ScopedUser::new(user))
+        } else {
+            Err(ApiError::from(AuthError::Forbidden(format!(
+                "Missing permission: '{}' scope required.",
+                required
+            ))))
+        }
+    }
+}
+
+pub struct WriteScope;
+impl ScopeRequirement for WriteScope {
+    const SCOPE: &'static str = scopes::WRITE;
+}
+
+pub struct AssetUpload;
+impl ScopeRequirement for AssetUpload {
+    const SCOPE: &'static str = scopes::ASSET_UPLOAD;
+}
+
+pub struct AssetDownload;
+impl ScopeRequirement for AssetDownload {
+    const SCOPE: &'static str = scopes::ASSET_DOWNLOAD;
+}
+
+pub struct ManifestPublish;
+impl ScopeRequirement for ManifestPublish {
+    const SCOPE: &'static str = scopes::MANIFEST_PUBLISH;
+}
+
+pub struct ManifestRead;
+impl ScopeRequirement for ManifestRead {
+    const SCOPE: &'static str = scopes::MANIFEST_READ;
+}
+
+pub struct JobRun;
+impl ScopeRequirement for JobRun {
+    const SCOPE: &'static str = scopes::JOB_RUN;
+}
+
+pub struct JobAttach;
+impl ScopeRequirement for JobAttach {
+    const SCOPE: &'static str = scopes::JOB_ATTACH;
+}
+
 #[derive(Clone)]
 pub struct JWTServiceAuthProvider<P: AuthProvider> {
     jwt_service: JwtService,

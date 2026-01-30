@@ -151,7 +151,6 @@ impl StandardPermissionService {
     fn elevate_write(mut user: User) -> Result<User, AuthError> {
         if user.scopes.iter().any(|s| s == WRITE) {
             user.scopes.push(ASSET_UPLOAD.into());
-            user.scopes.push(ASSET_UPLOAD.into());
             user.scopes.push(MANIFEST_PUBLISH.into());
             user.scopes.push(JOB_RUN.into());
             user.scopes.push(JOB_ATTACH.into());
@@ -164,7 +163,7 @@ impl StandardPermissionService {
     fn elevate_read(mut user: User) -> Result<User, AuthError> {
         if user.scopes.iter().any(|s| s == "read") {
             user.scopes.push(ASSET_DOWNLOAD.into());
-            user.scopes.push(MANIFEST_DOWNLOAD.into());
+            user.scopes.push(MANIFEST_READ.into());
         }
 
         Ok(user)

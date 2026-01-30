@@ -1,5 +1,4 @@
-use crate::auth::AuthenticatedUser;
-use crate::state::AppState;
+use crate::prelude::*;
 
 use aquila_core::prelude::{scopes::*, *};
 use axum::{
@@ -88,52 +87,36 @@ impl IntoResponse for ApiError {
     }
 }
 
-/// Checks if the user has the required scope.
-///
-/// Implicitly allows users with the "admin" scope.
-fn check_scope(user: &User, required: &str) -> Result<(), ApiError> {
-    if user.scopes.iter().any(|s| s == ADMIN || s == required) {
-        Ok(())
-    } else {
-        Err(ApiError::from(AuthError::Forbidden(format!(
-            "Missing permission: '{}' scope required.",
-            required
-        ))))
-    }
-}
-
 /// GET /assets/{hash}
 pub async fn download_asset<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<AssetDownload>,
     Path(hash): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, ASSET_DOWNLOAD)?;
-
     let storage = state.storage();
     let data = storage.read_file(&hash).await?;
     if let Some(url) = storage.get_download_url(&hash).await? {
         return Ok(Redirect::temporary(&url).into_response());
     }
 
-    Ok(storage
+    let res = storage
         .get_download_url(&hash)
         .await?
         .map(|url| Redirect::temporary(&url).into_response())
         .unwrap_or_else(||
-        // TODO set Content-Type based on manifest info
-        data.into_response()))
+            // TODO set Content-Type based on manifest info
+            data.into_response());
+
+    Ok(res)
 }
 
 /// POST /assets
 /// Accepts raw body, calculates SHA256, stores it. Returns the Hash.
 pub async fn upload_asset<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<AssetUpload>,
     body: Bytes,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, ASSET_UPLOAD)?;
-
     let mut hasher = Sha256::new();
     hasher.update(&body);
     let hash = hex::encode(hasher.finalize());
@@ -147,15 +130,13 @@ pub async fn upload_asset<S: AquilaServices>(
     Ok((status, hash))
 }
 
-// PUT /assets/stream/{hash}
+/// PUT /assets/stream/{hash}
 pub async fn upload_asset_stream<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<AssetUpload>,
     Path(hash): Path<String>,
     request: Request,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, ASSET_UPLOAD)?;
-
     let content_length = request
         .headers()
         .get(axum::http::header::CONTENT_LENGTH)
@@ -216,11 +197,9 @@ pub async fn upload_asset_stream<S: AquilaServices>(
 /// GET /manifest/{version}
 pub async fn get_manifest<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<ManifestRead>,
     Path(version): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, MANIFEST_DOWNLOAD)?;
-
     let storage = state.storage();
     let path = storage.get_manifest_path(version.as_str());
     let data = storage.read_file(&path).await?;
@@ -228,7 +207,9 @@ pub async fn get_manifest<S: AquilaServices>(
     // Validate
     let _manifest: AssetManifest = serde_json::from_slice(&data)?;
 
-    Ok(Json(serde_json::from_slice::<serde_json::Value>(&data)?))
+    let res = Json(serde_json::from_slice::<serde_json::Value>(&data)?);
+
+    Ok(res)
 }
 
 #[derive(serde::Deserialize)]
@@ -244,12 +225,10 @@ fn default_true() -> bool {
 /// POST /manifest
 pub async fn publish_manifest<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<ManifestPublish>,
     Query(params): Query<PublishParams>,
     Json(manifest): Json<AssetManifest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, MANIFEST_PUBLISH)?;
-
     let data = Bytes::from(serde_json::to_vec_pretty(&manifest)?);
     let storage = state.storage();
 
@@ -298,11 +277,9 @@ pub struct CreateTokenRequest {
 /// POST /auth/token
 pub async fn issue_token<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    ScopedUser { user, .. }: ScopedUser<WriteScope>,
     Json(req): Json<CreateTokenRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, WRITE)?;
-
     let scopes = req.scopes.unwrap_or_else(|| vec![READ.to_string()]);
     let is_admin = user.scopes.iter().any(|s| s == ADMIN);
     let privileged_scopes = [ADMIN, WRITE];
@@ -320,10 +297,12 @@ pub async fn issue_token<S: AquilaServices>(
     let duration = req.duration_seconds.unwrap_or(31_536_000); // 1 year
     let token = state.jwt().mint(req.subject, scopes, duration)?;
 
-    Ok(Json(serde_json::json!({
+    let res = Json(serde_json::json!({
         "token": token,
         "expires_in": duration
-    })))
+    }));
+
+    Ok(res)
 }
 
 /// GET /auth/callback (can be configured, see [`AquilaServerConfig`])
@@ -343,38 +322,34 @@ pub async fn auth_callback<S: AquilaServices>(
         60 * 60 * 24 * 30, // 30 Days
     )?;
 
-    Ok(Json(serde_json::json!({
+    let res = Json(serde_json::json!({
         "status": "success",
         "user": user.id,
         "token": session_token
-    })))
+    }));
+
+    Ok(res)
 }
 
 /// Handler: POST /jobs/run
 pub async fn run<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<JobRun>,
     Json(task): Json<JobRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, JOB_RUN)?;
-
-    let result = state.compute().run(task).await?;
-
-    Ok(Json(result))
+    let res = state.compute().run(task).await.map(Json)?;
+    Ok(res)
 }
 
 /// Handler: GET /jobs/:id/attach
 pub async fn attach<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    AuthenticatedUser(user): AuthenticatedUser,
+    _: ScopedUser<JobAttach>,
     Path(id): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, ApiError> {
-    // TODO https://github.com/NicoZweifel/aquila/issues/1
-    check_scope(&user, JOB_ATTACH)?;
-    // let _ = state.compute().get_job(&id).await?;
-
-    Ok(ws.on_upgrade(move |socket| handle_attach_socket(state, id, socket)))
+    let res = ws.on_upgrade(move |socket| handle_attach_socket(state, id, socket));
+    Ok(res)
 }
 
 async fn handle_attach_socket<S: AquilaServices>(

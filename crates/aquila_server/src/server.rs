@@ -30,7 +30,7 @@ pub struct AquilaServerConfig {
 impl Default for AquilaServerConfig {
     fn default() -> Self {
         Self {
-            callback: "/auth/callback".to_string(),
+            callback: AUTH_CALLBACK.to_string(),
         }
     }
 }

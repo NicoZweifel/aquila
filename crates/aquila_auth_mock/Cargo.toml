@@ -1,10 +1,10 @@
 [package]
 name = "aquila_auth_mock"
-version = "0.7.0-rc.6"
+version = "0.7.0-rc.7"
 edition = "2024"
 description = "Aquila asset mock auth for tests/examples"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
-aquila_core = { path = "../aquila_core", version = "0.7.0-rc.6" }
+aquila_core = { path = "../aquila_core", version = "0.7.0-rc.7" }

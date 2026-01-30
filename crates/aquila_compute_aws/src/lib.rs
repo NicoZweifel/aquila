@@ -152,7 +152,7 @@ impl AwsBatchBackend {
             .await
             .map(|r| r.job_definition_arn)
             .map_err(|e| ComputeError::System(format!("Failed to register definition: {:?}", e)))?
-            .map(|x| Ok(x))
+            .map(Ok)
             .unwrap_or(Err(ComputeError::System(
                 "Failed to register definition".to_string(),
             )))
@@ -203,7 +203,7 @@ impl ComputeBackend for AwsBatchBackend {
             .map_err(|e| ComputeError::System(e.to_string()))
     }
 
-    // TODO refactor this into sensible pieces
+    // TODO refactor this into sensible pieces/reduce nesting
     async fn attach(
         &self,
         job_id: &str,
@@ -248,10 +248,10 @@ impl ComputeBackend for AwsBatchBackend {
                                     state.finished = true;
                                 }
 
-                                if let Some(container) = job.container() {
-                                    if let Some(ls) = container.log_stream_name() {
-                                        state.log_stream_name = Some(ls.to_string());
-                                    }
+                                if let Some(container) = job.container()
+                                    && let Some(ls) = container.log_stream_name()
+                                {
+                                    state.log_stream_name = Some(ls.to_string());
                                 }
                             }
                         }
@@ -293,30 +293,16 @@ impl ComputeBackend for AwsBatchBackend {
                             state.error_count = 0;
 
                             let events = output.events();
-                            if events.is_empty() {
-                                if !state.finished {
-                                    match state
-                                        .batch
-                                        .describe_jobs()
-                                        .jobs(&state.job_id)
-                                        .send()
-                                        .await
-                                    {
-                                        Ok(resp) => {
-                                            if let Some(job) = resp.jobs().first() {
-                                                if matches!(
-                                                    job.status(),
-                                                    Some(
-                                                        AwsJobStatus::Succeeded
-                                                            | AwsJobStatus::Failed
-                                                    )
-                                                ) {
-                                                    state.finished = true;
-                                                }
-                                            }
-                                        }
-                                        Err(_) => {}
-                                    }
+                            if events.is_empty() && !state.finished {
+                                if let Ok(resp) =
+                                    state.batch.describe_jobs().jobs(&state.job_id).send().await
+                                    && let Some(job) = resp.jobs().first()
+                                    && matches!(
+                                        job.status(),
+                                        Some(AwsJobStatus::Succeeded | AwsJobStatus::Failed)
+                                    )
+                                {
+                                    state.finished = true;
                                 }
 
                                 if state.finished {

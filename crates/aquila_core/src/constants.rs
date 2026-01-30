@@ -6,7 +6,7 @@ pub mod scopes {
     pub const ASSET_UPLOAD: &str = "asset:upload";
     pub const ASSET_DOWNLOAD: &str = "asset:download";
     pub const MANIFEST_PUBLISH: &str = "manifest:publish";
-    pub const MANIFEST_DOWNLOAD: &str = "manifest:download";
+    pub const MANIFEST_READ: &str = "manifest:download";
     pub const JOB_RUN: &str = "job:run";
     pub const JOB_ATTACH: &str = "job:attach";
 }
