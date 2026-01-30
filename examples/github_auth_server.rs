@@ -51,12 +51,14 @@ async fn main() {
     let jwt = JwtService::new(&jwt_secret);
     let auth = JWTServiceAuthProvider::new(jwt.clone(), gh_auth);
     let compute = NoComputeBackend;
+    let permissions = StandardPermissionService;
 
     let services = CoreServices {
         storage,
         auth,
         jwt,
         compute,
+        permissions,
     };
 
     // Build

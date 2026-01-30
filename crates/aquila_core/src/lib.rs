@@ -13,6 +13,7 @@
 
 pub mod asset;
 pub mod claims;
+pub mod constants;
 pub mod error;
 pub mod job;
 pub mod traits;
@@ -20,6 +21,7 @@ pub mod traits;
 pub mod prelude {
     pub use super::asset::*;
     pub use super::claims::*;
+    pub use super::constants::*;
     pub use super::error::*;
     pub use super::job::*;
     pub use super::traits::*;

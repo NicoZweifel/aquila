@@ -13,17 +13,22 @@ where
     type Auth = S::Auth;
     type Compute = S::Compute;
     type Jwt = S::Jwt;
+    type Permission = S::Permission;
 
     fn storage(&self) -> &Self::Storage {
-        &self.services.storage()
+        self.services.storage()
     }
     fn auth(&self) -> &Self::Auth {
-        &self.services.auth()
+        self.services.auth()
     }
     fn compute(&self) -> &Self::Compute {
-        &self.services.compute()
+        self.services.compute()
     }
     fn jwt(&self) -> &Self::Jwt {
-        &self.services.jwt()
+        self.services.jwt()
+    }
+
+    fn permissions(&self) -> &Self::Permission {
+        self.services.permissions()
     }
 }

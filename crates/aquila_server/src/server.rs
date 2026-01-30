@@ -1,5 +1,5 @@
 use crate::{api, prelude::*};
-use aquila_core::prelude::*;
+use aquila_core::prelude::{routes::*, *};
 use axum::{
     Router,
     extract::DefaultBodyLimit,
@@ -39,17 +39,17 @@ impl AquilaServer {
     pub fn build<S: AquilaServices>(self, services: S) -> Router {
         let AquilaServerConfig { callback, .. } = self.config;
         Router::new()
-            .route("/health", get(|| async { "OK" }))
-            .route("/auth/login", get(api::auth_login))
-            .route("/auth/token", post(api::issue_token))
+            .route(HEALTH, get(|| async { "OK" }))
+            .route(AUTH_LOGIN, get(api::auth_login))
+            .route(AUTH_TOKEN, post(api::issue_token))
             .route(callback.as_str(), get(api::auth_callback))
-            .route("/assets/{hash}", get(api::download_asset))
-            .route("/assets/stream/{hash}", put(api::upload_asset_stream))
-            .route("/assets", post(api::upload_asset))
-            .route("/manifest/{version}", get(api::get_manifest))
-            .route("/manifest", post(api::publish_manifest))
-            .route("/jobs/run", post(api::run))
-            .route("/jobs/{id}/attach", get(api::attach))
+            .route(ASSETS_BY_HASH, get(api::download_asset))
+            .route(ASSETS_STREAM_BY_HASH, put(api::upload_asset_stream))
+            .route(ASSETS, post(api::upload_asset))
+            .route(MANIFEST_BY_VERSION, get(api::get_manifest))
+            .route(MANIFEST, post(api::publish_manifest))
+            .route(JOBS_RUN, post(api::run))
+            .route(JOBS_ATTACH, get(api::attach))
             .layer(DefaultBodyLimit::disable())
             .layer(TraceLayer::new_for_http())
             .with_state(AppState { services })

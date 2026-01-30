@@ -1,7 +1,7 @@
 use crate::auth::AuthenticatedUser;
 use crate::state::AppState;
 
-use aquila_core::prelude::*;
+use aquila_core::prelude::{scopes::*, *};
 use axum::{
     Json,
     extract::{
@@ -50,10 +50,9 @@ impl IntoResponse for ApiError {
             return match err {
                 ComputeError::NotFound(_) => (StatusCode::NOT_FOUND, err.to_string()),
                 ComputeError::Unsupported(_) => (StatusCode::NOT_IMPLEMENTED, err.to_string()),
-                ComputeError::InvalidRequest(_) => (
-                    StatusCode::BAD_REQUEST,
-                    format!("Invalid Request: {}", err.to_string()),
-                ),
+                ComputeError::InvalidRequest(_) => {
+                    (StatusCode::BAD_REQUEST, format!("Invalid Request: {}", err))
+                }
                 ComputeError::System(_) => {
                     error!("Internal Server ComputeError: {:?}", self.0);
                     (
@@ -89,8 +88,11 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// Checks if the user has the required scope.
+///
+/// Implicitly allows users with the "admin" scope.
 fn check_scope(user: &User, required: &str) -> Result<(), ApiError> {
-    if user.scopes.iter().any(|s| s == "admin" || s == required) {
+    if user.scopes.iter().any(|s| s == ADMIN || s == required) {
         Ok(())
     } else {
         Err(ApiError::from(AuthError::Forbidden(format!(
@@ -106,7 +108,7 @@ pub async fn download_asset<S: AquilaServices>(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(hash): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, "read")?;
+    check_scope(&user, ASSET_DOWNLOAD)?;
 
     let storage = state.storage();
     let data = storage.read_file(&hash).await?;
@@ -130,7 +132,7 @@ pub async fn upload_asset<S: AquilaServices>(
     AuthenticatedUser(user): AuthenticatedUser,
     body: Bytes,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, "write")?;
+    check_scope(&user, ASSET_UPLOAD)?;
 
     let mut hasher = Sha256::new();
     hasher.update(&body);
@@ -152,7 +154,7 @@ pub async fn upload_asset_stream<S: AquilaServices>(
     Path(hash): Path<String>,
     request: Request,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, "write")?;
+    check_scope(&user, ASSET_UPLOAD)?;
 
     let content_length = request
         .headers()
@@ -217,7 +219,7 @@ pub async fn get_manifest<S: AquilaServices>(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(version): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, "read")?;
+    check_scope(&user, MANIFEST_DOWNLOAD)?;
 
     let storage = state.storage();
     let path = storage.get_manifest_path(version.as_str());
@@ -246,7 +248,7 @@ pub async fn publish_manifest<S: AquilaServices>(
     Query(params): Query<PublishParams>,
     Json(manifest): Json<AssetManifest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, "write")?;
+    check_scope(&user, MANIFEST_PUBLISH)?;
 
     let data = Bytes::from(serde_json::to_vec_pretty(&manifest)?);
     let storage = state.storage();
@@ -299,16 +301,20 @@ pub async fn issue_token<S: AquilaServices>(
     AuthenticatedUser(user): AuthenticatedUser,
     Json(req): Json<CreateTokenRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    check_scope(&user, "write")?;
+    check_scope(&user, WRITE)?;
 
-    let scopes = req.scopes.unwrap_or_else(|| vec!["read".to_string()]);
-    if scopes
-        .iter()
-        .any(|s| matches!(s.as_str(), "admin" | "write"))
-    {
-        return Err(ApiError::from(AuthError::Forbidden(
-            "Cannot mint admin/write tokens.".into(),
-        )));
+    let scopes = req.scopes.unwrap_or_else(|| vec![READ.to_string()]);
+    let is_admin = user.scopes.iter().any(|s| s == ADMIN);
+    let privileged_scopes = [ADMIN, WRITE];
+
+    if !is_admin {
+        for scope in &scopes {
+            if privileged_scopes.contains(&scope.as_str()) {
+                return Err(ApiError::from(AuthError::Forbidden(format!(
+                    "Insufficient permissions to mint '{scope}' token."
+                ))));
+            }
+        }
     }
 
     let duration = req.duration_seconds.unwrap_or(31_536_000); // 1 year
@@ -350,8 +356,8 @@ pub async fn run<S: AquilaServices>(
     AuthenticatedUser(user): AuthenticatedUser,
     Json(task): Json<JobRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    // TODO https://github.com/NicoZweifel/aquila/issues/1
-    check_scope(&user, "write")?;
+    check_scope(&user, JOB_RUN)?;
+
     let result = state.compute().run(task).await?;
 
     Ok(Json(result))
@@ -365,7 +371,7 @@ pub async fn attach<S: AquilaServices>(
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, ApiError> {
     // TODO https://github.com/NicoZweifel/aquila/issues/1
-    check_scope(&user, "write")?;
+    check_scope(&user, JOB_ATTACH)?;
     // let _ = state.compute().get_job(&id).await?;
 
     Ok(ws.on_upgrade(move |socket| handle_attach_socket(state, id, socket)))

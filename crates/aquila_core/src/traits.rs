@@ -1,5 +1,5 @@
 use crate::error::*;
-use crate::prelude::*;
+use crate::prelude::{scopes::*, *};
 
 use bytes::Bytes;
 use futures::stream::BoxStream;
@@ -12,6 +12,7 @@ pub trait AquilaServices: Clone + Send + Sync + 'static {
     type Auth: AuthProvider;
     type Compute: ComputeBackend;
     type Jwt: JwtBackend;
+    type Permission: PermissionService;
 
     /// The registered [`StorageBackend`]
     fn storage(&self) -> &Self::Storage;
@@ -22,6 +23,9 @@ pub trait AquilaServices: Clone + Send + Sync + 'static {
 
     /// The registered [`JwtBackend`]
     fn jwt(&self) -> &Self::Jwt;
+
+    /// The registered [`PermissionService`]
+    fn permissions(&self) -> &Self::Permission;
 }
 
 /// A trait for injecting storage logic into the server.
@@ -106,6 +110,74 @@ pub trait AuthProvider: Send + Sync + 'static + Clone {
     }
 }
 
+/// A trait for elevating user permissions by injecting scopes.
+///
+/// Implementations can fetch roles from a database, check config files, or apply static mappings.
+pub trait PermissionService: Send + Sync + 'static + Clone {
+    /// Elevates the user and fills scopes.
+    fn elevate(&self, user: User) -> impl Future<Output = Result<User, AuthError>> + Send;
+}
+
+/// A pass-through [`PermissionService`] that grants no additional scopes.
+///
+/// Use this when your [`AuthProvider`] already provides the exact granular scopes required
+/// by the API (e.g. `asset:upload`, `job:run`), or when using mock auth in tests/examples.
+#[derive(Clone, Debug, Default)]
+pub struct NoPermissionService;
+
+impl PermissionService for NoPermissionService {
+    async fn elevate(&self, user: User) -> Result<User, AuthError> {
+        Ok(user)
+    }
+}
+
+/// A [`PermissionService`] that maps standard `read`/`write` roles to application-specific capabilities.
+///
+/// # Mappings
+/// * **`write`** grants:
+///     * `asset:upload`, `asset:stream`
+///     * `manifest:publish`
+///     * `job:run`, `job:attach`
+/// * **`read`** grants:
+///     * `asset:download`
+///     * `manifest:read`
+/// * **`github-actions`** (Subject) grants:
+///     * `job:run`, `job:attach`
+#[derive(Clone, Debug, Default)]
+pub struct StandardPermissionService;
+
+impl StandardPermissionService {
+    /// Elevates the user and fills `write` scopes.
+    fn elevate_write(mut user: User) -> Result<User, AuthError> {
+        if user.scopes.iter().any(|s| s == WRITE) {
+            user.scopes.push(ASSET_UPLOAD.into());
+            user.scopes.push(ASSET_UPLOAD.into());
+            user.scopes.push(MANIFEST_PUBLISH.into());
+            user.scopes.push(JOB_RUN.into());
+            user.scopes.push(JOB_ATTACH.into());
+        }
+
+        Ok(user)
+    }
+
+    /// Elevates the user and fills `read` scopes.
+    fn elevate_read(mut user: User) -> Result<User, AuthError> {
+        if user.scopes.iter().any(|s| s == "read") {
+            user.scopes.push(ASSET_DOWNLOAD.into());
+            user.scopes.push(MANIFEST_DOWNLOAD.into());
+        }
+
+        Ok(user)
+    }
+}
+
+impl PermissionService for StandardPermissionService {
+    /// Elevates the user and fills scopes.
+    async fn elevate(&self, user: User) -> Result<User, AuthError> {
+        Self::elevate_write(Self::elevate_read(user)?)
+    }
+}
+
 /// A trait for injecting compute logic into the server, e.g., running a build/bake pipeline.
 pub trait ComputeBackend: Send + Sync + 'static + Clone {
     /// Initialize the backend, e.g., verify AWS credentials or Docker socket.
@@ -123,6 +195,7 @@ pub trait ComputeBackend: Send + Sync + 'static + Clone {
     > + Send;
 }
 
+/// A [`ComputeBackend`] that returns [`ComputeError::Unsupported`] for all operations.
 #[derive(Clone)]
 pub struct NoComputeBackend;
 
@@ -134,6 +207,7 @@ impl ComputeBackend for NoComputeBackend {
     async fn run(&self, _req: JobRequest) -> Result<JobResult, ComputeError> {
         Err(ComputeError::Unsupported("Not supported!".to_string()))
     }
+
     async fn attach(
         &self,
         _id: &str,
@@ -153,6 +227,7 @@ pub trait JwtBackend: Clone + Send + Sync + 'static {
     fn verify(&self, token: &str) -> Result<User, AuthError>;
 }
 
+/// A [`JwtBackend`] that returns [`AuthError::Unsupported`] for all operations.
 #[derive(Clone)]
 pub struct NoJwtBackend;
 

@@ -43,11 +43,16 @@ async fn main() {
     // Compute is not required for this example, see `docker_server.rs` for an example using `DockerComputeBackend`.
     let compute = NoComputeBackend;
 
+    // No Permissions Service required for this example,
+    // see `github_auth_server.rs` for an example using [`StandardPermissionsService`] to map scopes.
+    let permissions = NoPermissionService;
+
     let services = CoreServices {
         storage,
         auth,
         jwt,
         compute,
+        permissions,
     };
 
     // Build

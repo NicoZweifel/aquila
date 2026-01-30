@@ -51,17 +51,23 @@ async fn main() {
     // Don't use this in production! This is just for demonstration/testing purposes
     let auth = AllowAllAuth;
 
-    // JWT is not required for this example
+    // JWT is not required for this example,
+    // see `github_auth_server.rs` for an example using `GithubAuthProvider` and `JwtServiceAuthProvider`.
     let jwt = NoJwtBackend;
 
     // Initialize AWS Batch Compute Backend
     let compute = AwsBatchBackend::new(&aws_config, batch_queue, profiles);
+
+    // No Permissions Service required for this example,
+    // see `github_auth_server.rs` for an example using [`StandardPermissionsService`] to map scopes.
+    let permissions = NoPermissionService;
 
     let services = CoreServices {
         storage,
         auth,
         jwt,
         compute,
+        permissions,
     };
 
     // Build

@@ -35,10 +35,16 @@ where
             })
             .unwrap_or("");
 
-        match state.services.auth().verify(token).await {
-            Ok(user) => Ok(AuthenticatedUser(user)),
-            Err(e) => Err(ApiError::from(e)),
-        }
+        let auth = state.auth();
+        let permissions = state.permissions();
+
+        let user = auth.verify(token).await.map_err(ApiError::from)?;
+
+        permissions
+            .elevate(user)
+            .await
+            .map(AuthenticatedUser)
+            .map_err(ApiError::from)
     }
 }
 

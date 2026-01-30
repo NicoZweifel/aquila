@@ -1,24 +1,28 @@
 use aquila_core::prelude::*;
 
 #[derive(Clone)]
-pub struct CoreServices<S, A, C, J> {
+pub struct CoreServices<S, A, C, J, P> {
     pub storage: S,
     pub auth: A,
     pub compute: C,
     pub jwt: J,
+    pub permissions: P,
 }
 
-impl<S, A, C, J> AquilaServices for CoreServices<S, A, C, J>
+impl<S, A, C, J, P> AquilaServices for CoreServices<S, A, C, J, P>
 where
     S: StorageBackend,
     A: AuthProvider,
     C: ComputeBackend,
     J: JwtBackend,
+    P: PermissionService,
 {
     type Storage = S;
     type Auth = A;
     type Compute = C;
     type Jwt = J;
+
+    type Permission = P;
 
     fn storage(&self) -> &S {
         &self.storage
@@ -31,5 +35,9 @@ where
     }
     fn jwt(&self) -> &J {
         &self.jwt
+    }
+
+    fn permissions(&self) -> &P {
+        &self.permissions
     }
 }

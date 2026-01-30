@@ -42,7 +42,7 @@
 //! }
 //! ```
 
-use aquila_core::prelude::*;
+use aquila_core::prelude::{routes::*, *};
 use futures_util::{SinkExt, StreamExt};
 use reqwest::{Client, StatusCode, Url};
 use sha2::{Digest, Sha256};
@@ -122,7 +122,8 @@ impl AquilaClient {
     }
 
     pub async fn fetch_manifest(&self, version: &str) -> Result<AssetManifest> {
-        let url = format!("{}/manifest/{version}", self.base_url);
+        let path = MANIFEST_BY_VERSION.replace("{version}", version);
+        let url = format!("{}{}", self.base_url, path);
         let response = self.auth_request(self.client.get(&url)).send().await?;
 
         if !response.status().is_success() {
@@ -145,7 +146,7 @@ impl AquilaClient {
         duration_seconds: Option<u64>,
         scopes: Option<Vec<String>>,
     ) -> Result<String> {
-        let url = format!("{}/auth/token", self.base_url);
+        let url = format!("{}{}", self.base_url, AUTH_TOKEN);
 
         let req = CreateTokenRequest {
             subject: subject.to_string(),
@@ -182,7 +183,7 @@ impl AquilaClient {
         hasher.update(&buffer);
         let local_hash = hex::encode(hasher.finalize());
 
-        let url = format!("{}/assets", self.base_url);
+        let url = format!("{}{}", self.base_url, ASSETS);
         let response = self
             .auth_request(self.client.post(&url))
             .body(buffer)
@@ -222,7 +223,8 @@ impl AquilaClient {
         let file = File::open(path).await?;
         let size = file.metadata().await?.len();
         let body = reqwest::Body::wrap_stream(ReaderStream::new(file));
-        let url = format!("{}/assets/stream/{}", self.base_url, local_hash);
+        let path = ASSETS_STREAM_BY_HASH.replace("{hash}", &local_hash);
+        let url = format!("{}{}", self.base_url, path);
 
         let response = self
             .auth_request(self.client.put(&url))
@@ -241,7 +243,7 @@ impl AquilaClient {
     }
 
     pub async fn publish_manifest(&self, manifest: &AssetManifest, latest: bool) -> Result<()> {
-        let url = format!("{}/manifest", self.base_url);
+        let url = format!("{}{}", self.base_url, MANIFEST);
         let response = self
             .auth_request(self.client.post(&url))
             .query(&[("latest", latest)])
@@ -259,7 +261,8 @@ impl AquilaClient {
     }
 
     pub async fn download_file(&self, hash: &str) -> Result<Vec<u8>> {
-        let url = format!("{}/assets/{hash}", self.base_url);
+        let path = ASSETS_BY_HASH.replace("{hash}", hash);
+        let url = format!("{}{}", self.base_url, path);
         let response = self.auth_request(self.client.get(&url)).send().await?;
         if !response.status().is_success() {
             return Err(AquilaClientError::ServerError(
@@ -273,7 +276,7 @@ impl AquilaClient {
     }
 
     pub async fn run(&self, task: JobRequest) -> Result<JobResult> {
-        let url = format!("{}/jobs/run", self.base_url);
+        let url = format!("{}{}", self.base_url, JOBS_RUN);
         let response = self
             .auth_request(self.client.post(&url))
             .json(&task)
@@ -295,7 +298,8 @@ impl AquilaClient {
     }
 
     pub async fn attach(&self, job_id: &str) -> Result<()> {
-        let url = format!("{}/jobs/{}/attach", self.base_url, job_id);
+        let path = JOBS_ATTACH.replace("{id}", job_id);
+        let url = format!("{}{}", self.base_url, path);
         let ws_url = if Url::from_str(url.as_str())?.scheme() == "https" {
             url.to_string().replace("https://", "wss://")
         } else {
