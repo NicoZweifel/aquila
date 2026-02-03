@@ -378,6 +378,7 @@ impl LogStreamState {
             let timestamp = event.timestamp().map(|ts| {
                 use chrono::TimeZone;
                 chrono::Utc.timestamp_millis_opt(ts).unwrap().to_rfc3339()
+            });
 
             self.buffer.push_back(LogOutput {
                 source: LogSource::Stdout,
