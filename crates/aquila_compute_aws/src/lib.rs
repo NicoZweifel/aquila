@@ -368,26 +368,29 @@ impl LogStreamState {
             req = req.next_token(token);
         }
 
-        let output = req.send().await?;
-        self.next_token = output.next_forward_token;
+        let out = req.send().await?;
 
-        let events = output.events.unwrap_or_default();
-        let has_events = !events.is_empty();
+        let next = out.next_forward_token;
+        let events = out.events.unwrap_or_default();
+        let any = !events.is_empty();
+        if any || self.next_token.is_none() {
+            self.next_token = next;
+        }
 
-        for event in events {
-            let timestamp = event.timestamp().map(|ts| {
+        self.buffer.extend(events.iter().map(|e| {
+            let timestamp = e.timestamp().map(|ts| {
                 use chrono::TimeZone;
                 chrono::Utc.timestamp_millis_opt(ts).unwrap().to_rfc3339()
             });
 
-            self.buffer.push_back(LogOutput {
+            LogOutput {
                 source: LogSource::Stdout,
                 timestamp,
-                message: format!("{}\n", event.message().unwrap_or_default()),
-            });
-        }
+                message: format!("{}\n", e.message().unwrap_or_default()),
+            }
+        }));
 
-        Ok(has_events)
+        Ok(any)
     }
 
     fn handle_error<T: std::fmt::Debug>(&mut self, _err: T) -> bool {
