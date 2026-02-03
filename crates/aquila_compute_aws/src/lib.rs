@@ -373,7 +373,7 @@ impl LogStreamState {
         let next = out.next_forward_token;
         let events = out.events.unwrap_or_default();
         let any = !events.is_empty();
-        if any || self.next_token.is_none() {
+        if any {
             self.next_token = next;
         }
 
