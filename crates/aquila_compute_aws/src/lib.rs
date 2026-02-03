@@ -215,133 +215,183 @@ impl ComputeBackend for AwsBatchBackend {
             log_stream_name: None,
             next_token: None,
             buffer: VecDeque::new(),
-            finished: false,
+            job_finished: false,
+            terminated: false,
             error_count: 0,
+            grace_checks: 0,
         };
 
         let stream = stream::unfold(state, |mut state| async move {
-            loop {
-                if state.error_count > 15 {
-                    return Some((
-                        Err(ComputeError::System("Too many transient errors".into())),
-                        state,
-                    ));
-                }
+            if let Some(log) = state.buffer.pop_front() {
+                return Some((Ok(log), state));
+            }
 
-                if let Some(log) = state.buffer.pop_front() {
+            if state.terminated {
+                return None;
+            }
+
+            if state.error_count > 15 {
+                state.terminated = true;
+                return Some((
+                    Err(ComputeError::System("Too many transient errors".into())),
+                    state,
+                ));
+            }
+
+            loop {
+                if !state.buffer.is_empty() {
+                    let log = state.buffer.pop_front().unwrap();
                     return Some((Ok(log), state));
                 }
 
-                if state.finished {
-                    return None;
-                }
-
-                if state.log_stream_name.is_none() {
-                    match state.batch.describe_jobs().jobs(&state.job_id).send().await {
-                        Ok(resp) => {
-                            state.error_count = 0;
-                            if let Some(job) = resp.jobs().first() {
-                                if matches!(
-                                    job.status(),
-                                    Some(AwsJobStatus::Succeeded | AwsJobStatus::Failed)
-                                ) {
-                                    state.finished = true;
-                                }
-
-                                if let Some(container) = job.container()
-                                    && let Some(ls) = container.log_stream_name()
-                                {
-                                    state.log_stream_name = Some(ls.to_string());
-                                }
+                if !state.job_finished || state.log_stream_name.is_none() {
+                    match state.refresh_job_status().await {
+                        Ok(_) => {
+                            if state.job_finished && state.log_stream_name.is_none() {
+                                return None;
                             }
                         }
                         Err(e) => {
-                            if matches!(e, SdkError::TimeoutError(_) | SdkError::DispatchFailure(_))
-                            {
-                                state.error_count += 1;
-                                tokio::time::sleep(Duration::from_secs(2)).await;
-                                continue;
-                            } else {
-                                return Some((Err(ComputeError::System(e.to_string())), state));
+                            if state.handle_error(e) {
+                                state.terminated = true;
+                                return Some((
+                                    Err(ComputeError::System("Batch API Error".into())),
+                                    state,
+                                ));
                             }
+                            tokio::time::sleep(Duration::from_secs(2)).await;
+                            continue;
                         }
-                    }
-
-                    if state.log_stream_name.is_none() {
-                        if state.finished {
-                            return None;
-                        }
-                        tokio::time::sleep(Duration::from_secs(2)).await;
-                        continue;
                     }
                 }
 
-                if let Some(ref log_stream) = state.log_stream_name {
-                    let mut req = state
-                        .logs
-                        .get_log_events()
-                        .log_group_name("/aws/batch/job")
-                        .log_stream_name(log_stream)
-                        .start_from_head(true);
-
-                    if let Some(ref token) = state.next_token {
-                        req = req.next_token(token);
-                    }
-
-                    match req.send().await {
-                        Ok(output) => {
+                if let Some(ref name) = state.log_stream_name.clone() {
+                    match state.fetch_log_events(name).await {
+                        Ok(has_new_events) => {
                             state.error_count = 0;
 
-                            let events = output.events();
-                            if events.is_empty() && !state.finished {
-                                if let Ok(resp) =
-                                    state.batch.describe_jobs().jobs(&state.job_id).send().await
-                                    && let Some(job) = resp.jobs().first()
-                                    && matches!(
-                                        job.status(),
-                                        Some(AwsJobStatus::Succeeded | AwsJobStatus::Failed)
-                                    )
-                                {
-                                    state.finished = true;
-                                }
-
-                                if state.finished {
-                                    return None;
-                                }
-
-                                tokio::time::sleep(Duration::from_secs(2)).await;
+                            if has_new_events {
+                                state.grace_checks = 0;
                                 continue;
                             }
 
-                            state.next_token = output.next_forward_token.clone();
-                            for event in events {
-                                let timestamp = event.timestamp().map(|ts| {
-                                    use chrono::TimeZone;
-                                    chrono::Utc.timestamp_millis_opt(ts).unwrap().to_rfc3339()
-                                });
-
-                                state.buffer.push_back(LogOutput {
-                                    source: LogSource::Stdout,
-                                    timestamp,
-                                    message: format!("{}\n", event.message().unwrap_or_default()),
-                                });
+                            if state.job_finished {
+                                state.grace_checks += 1;
+                                if state.grace_checks > 3 {
+                                    return None;
+                                }
                             }
+
+                            tokio::time::sleep(Duration::from_secs(2)).await;
+                            continue;
                         }
                         Err(e) => {
                             if should_retry(&e) {
-                                state.error_count += 1;
+                                state.handle_error(e.to_string());
                                 tokio::time::sleep(Duration::from_secs(2)).await;
                                 continue;
                             } else {
+                                state.terminated = true;
                                 return Some((Err(ComputeError::System(e.to_string())), state));
                             }
                         }
                     }
+                } else {
+                    tokio::time::sleep(Duration::from_secs(2)).await;
                 }
             }
         });
 
         Ok(stream.boxed())
+    }
+}
+
+struct LogStreamState {
+    batch: BatchClient,
+    logs: LogsClient,
+    job_id: String,
+    log_stream_name: Option<String>,
+    next_token: Option<String>,
+    buffer: VecDeque<LogOutput>,
+    job_finished: bool,
+    terminated: bool,
+    error_count: u32,
+    grace_checks: u32,
+}
+
+impl LogStreamState {
+    async fn refresh_job_status(&mut self) -> Result<(), String> {
+        if self.job_finished && self.log_stream_name.is_some() {
+            return Ok(());
+        }
+
+        let resp = self
+            .batch
+            .describe_jobs()
+            .jobs(&self.job_id)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let job = resp.jobs().first().ok_or("Job not found")?;
+
+        if matches!(
+            job.status(),
+            Some(AwsJobStatus::Succeeded | AwsJobStatus::Failed)
+        ) {
+            self.job_finished = true;
+        }
+
+        if self.log_stream_name.is_none()
+            && let Some(container) = job.container()
+            && let Some(ls) = container.log_stream_name()
+        {
+            self.log_stream_name = Some(ls.to_string());
+        }
+
+        Ok(())
+    }
+
+    /// Returns `Ok(true)` if new logs were added to the buffer, `Ok(false)` if empty.
+    async fn fetch_log_events(
+        &mut self,
+        stream_name: &str,
+    ) -> Result<bool, SdkError<GetLogEventsError>> {
+        let mut req = self
+            .logs
+            .get_log_events()
+            .log_group_name("/aws/batch/job")
+            .log_stream_name(stream_name)
+            .start_from_head(true);
+
+        if let Some(ref token) = self.next_token {
+            req = req.next_token(token);
+        }
+
+        let output = req.send().await?;
+        self.next_token = output.next_forward_token;
+
+        let events = output.events.unwrap_or_default();
+        let has_events = !events.is_empty();
+
+        for event in events {
+            let timestamp = event.timestamp().map(|ts| {
+                use chrono::TimeZone;
+                chrono::Utc.timestamp_millis_opt(ts).unwrap().to_rfc3339()
+
+            self.buffer.push_back(LogOutput {
+                source: LogSource::Stdout,
+                timestamp,
+                message: format!("{}\n", event.message().unwrap_or_default()),
+            });
+        }
+
+        Ok(has_events)
+    }
+
+    fn handle_error<T: std::fmt::Debug>(&mut self, _err: T) -> bool {
+        self.error_count += 1;
+        self.error_count > 15
     }
 }
 
@@ -356,15 +406,4 @@ fn should_retry(err: &SdkError<GetLogEventsError>) -> bool {
         },
         _ => false,
     }
-}
-
-struct LogStreamState {
-    batch: BatchClient,
-    logs: LogsClient,
-    job_id: String,
-    log_stream_name: Option<String>,
-    next_token: Option<String>,
-    buffer: VecDeque<LogOutput>,
-    finished: bool,
-    error_count: u32,
 }

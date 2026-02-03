@@ -146,6 +146,12 @@ pub enum ComputeCommands {
         #[arg(short, long)]
         queue: Option<String>,
 
+        /// The profile to use for the job. Can be used to map to a specific Job Definition on the server.
+        ///
+        /// [`None`] if the [`ComputeBackend`] doesn't support it, or if using the default profile.
+        #[arg(short, long)]
+        profile: Option<String>,
+
         /// Command to execute
         #[arg(last = true)]
         cmd: Vec<String>,
@@ -299,6 +305,7 @@ async fn main() -> anyhow::Result<()> {
             ComputeCommands::Run {
                 img,
                 queue,
+                profile,
                 cmd,
                 attach,
                 gpu,
@@ -320,6 +327,7 @@ async fn main() -> anyhow::Result<()> {
                     gpu,
                     remove,
                     env,
+                    profile,
                     ..Default::default()
                 };
 
