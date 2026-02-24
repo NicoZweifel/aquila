@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A request to run a new compute job on the server's [`ComputeBackend`].
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -37,12 +38,43 @@ pub struct JobResult {
     pub status: JobStatus,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum JobStatus {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum JobState {
+    #[default]
     Pending,
     Running,
     Succeeded,
-    Failed(String),
+    Failed,
+    Cancelled,
+}
+
+/// Detailed status of a job.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct JobStatus {
+    pub state: JobState,
+    pub message: Option<String>,
+    pub exit_code: Option<i32>,
+    /// Dynamic record of key-value pairs (e.g., CI artifact URLs, test counts).
+    #[serde(default)]
+    pub outputs: HashMap<String, String>,
+    /// RFC3339 timestamp.
+    pub timestamp: Option<String>,
+}
+
+impl JobStatus {
+    pub fn pending() -> Self {
+        Self {
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+            ..Default::default()
+        }
+    }
+
+    pub fn running() -> Self {
+        Self {
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

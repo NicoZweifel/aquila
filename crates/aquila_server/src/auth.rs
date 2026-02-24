@@ -1,4 +1,4 @@
-use crate::api::ApiError;
+use crate::api::error::ApiError;
 use crate::jwt::JwtService;
 use crate::state::AppState;
 

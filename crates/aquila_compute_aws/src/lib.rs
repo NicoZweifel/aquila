@@ -1,20 +1,21 @@
 use aquila_core::prelude::*;
 
-use aws_sdk_batch::error::SdkError;
 use aws_sdk_batch::{
     Client as BatchClient,
+    error::SdkError,
     types::{
         ContainerOverrides, ContainerProperties, JobDefinitionType, JobStatus as AwsJobStatus,
         KeyValuePair, ResourceRequirement, ResourceType,
     },
 };
-use aws_sdk_cloudwatchlogs::Client as LogsClient;
-use aws_sdk_cloudwatchlogs::operation::get_log_events::GetLogEventsError;
+use aws_sdk_cloudwatchlogs::{Client as LogsClient, operation::get_log_events::GetLogEventsError};
 
 use futures::stream::{self, BoxStream, StreamExt};
 
-use std::collections::{HashMap, VecDeque};
-use std::time::Duration;
+use std::{
+    collections::{HashMap, VecDeque},
+    time::Duration,
+};
 
 use uuid::Uuid;
 
@@ -198,7 +199,7 @@ impl ComputeBackend for AwsBatchBackend {
             .await
             .map(|output| JobResult {
                 id: output.job_id.unwrap_or_default(),
-                status: JobStatus::Pending,
+                status: JobStatus::pending(),
             })
             .map_err(|e| ComputeError::System(e.to_string()))
     }
@@ -265,7 +266,7 @@ impl ComputeBackend for AwsBatchBackend {
                     }
                 }
 
-                if let Some(ref name) = state.log_stream_name.clone() {
+                if let Some(name) = &state.log_stream_name.clone() {
                     match state.fetch_log_events(name).await {
                         Ok(has_new_events) => {
                             state.error_count = 0;
@@ -303,6 +304,108 @@ impl ComputeBackend for AwsBatchBackend {
         });
 
         Ok(stream.boxed())
+    }
+
+    async fn stop(&self, id: &str) -> Result<(), ComputeError> {
+        self.batch
+            .terminate_job()
+            .job_id(id)
+            .reason("Stopped by user via Aquila API")
+            .send()
+            .await
+            .map(|_| ())
+            .map_err(|e| ComputeError::System(format!("Failed to stop job: {}", e)))
+    }
+
+    async fn get_logs(&self, id: &str) -> Result<String, ComputeError> {
+        let jobs = self
+            .batch
+            .describe_jobs()
+            .jobs(id)
+            .send()
+            .await
+            .map_err(|e| ComputeError::System(e.to_string()))?;
+
+        let job = jobs
+            .jobs()
+            .first()
+            .ok_or(ComputeError::NotFound("Job not found".into()))?;
+
+        let stream_name = job
+            .container()
+            .and_then(|c| c.log_stream_name())
+            .ok_or(ComputeError::System("Log stream not yet available".into()))?;
+
+        let mut events = Vec::new();
+        let mut next_token = None;
+
+        loop {
+            let mut req = self
+                .logs
+                .get_log_events()
+                .log_group_name("/aws/batch/job")
+                .log_stream_name(stream_name)
+                .start_from_head(true);
+
+            if let Some(token) = &next_token {
+                req = req.next_token(token);
+            }
+
+            let res = req
+                .send()
+                .await
+                .map_err(|e| ComputeError::System(e.to_string()))?;
+
+            if let Some(chunk) = res.events {
+                for event in chunk {
+                    if let Some(msg) = event.message {
+                        events.push(msg);
+                    }
+                }
+            }
+
+            if res.next_forward_token == next_token {
+                break;
+            }
+            next_token = res.next_forward_token;
+        }
+
+        Ok(events.join("\n"))
+    }
+
+    async fn get_status(&self, id: &str) -> Result<JobStatus, ComputeError> {
+        let jobs = self
+            .batch
+            .describe_jobs()
+            .jobs(id)
+            .send()
+            .await
+            .map_err(|e| ComputeError::System(e.to_string()))?;
+
+        let job = jobs
+            .jobs()
+            .first()
+            .ok_or(ComputeError::NotFound("Job not found".into()))?;
+
+        let state = match job.status() {
+            Some(AwsJobStatus::Submitted)
+            | Some(AwsJobStatus::Pending)
+            | Some(AwsJobStatus::Runnable) => JobState::Pending,
+            Some(AwsJobStatus::Starting) | Some(AwsJobStatus::Running) => JobState::Running,
+            Some(AwsJobStatus::Succeeded) => JobState::Succeeded,
+            Some(AwsJobStatus::Failed) => JobState::Failed,
+            _ => JobState::Pending,
+        };
+
+        let message = job.status_reason().map(|s| s.to_string());
+        let exit_code = job.container().and_then(|c| c.exit_code());
+
+        Ok(JobStatus {
+            state,
+            message,
+            exit_code,
+            ..Default::default()
+        })
     }
 }
 
@@ -364,7 +467,7 @@ impl LogStreamState {
             .log_stream_name(stream_name)
             .start_from_head(true);
 
-        if let Some(ref token) = self.next_token {
+        if let Some(token) = &self.next_token {
             req = req.next_token(token);
         }
 

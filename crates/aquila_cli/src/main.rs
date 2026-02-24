@@ -79,19 +79,21 @@ enum Commands {
     Upload {
         path: PathBuf,
         #[arg(short, long)]
-        /// Use streaming upload (recommended for very large files)
+        /// Use streaming upload (recommended for very large files).
         stream: bool,
     },
     /// Publish a directory as a new Game Version
     Publish {
-        /// The directory containing assets (e.g., "./assets")
+        /// The directory containing assets (e.g., "./assets").
         dir: PathBuf,
 
-        /// The version string (e.g., "0.1.0" or git sha)
+        /// The version string, e.g.,
+        ///   - `0.1.0`
+        ///   - git sha (`4a481d7c7...`).
         #[arg(short, long)]
         version: String,
 
-        /// Use streaming upload (recommended for very large files)
+        /// Use streaming upload (recommended for very large files).
         #[arg(short, long)]
         stream: bool,
 
@@ -100,13 +102,13 @@ enum Commands {
         #[arg(short, long)]
         no_latest: bool,
     },
-    /// Download a file by hash
+    /// Download a file by hash.
     Download {
         hash: String,
         #[arg(short, long)]
         output: PathBuf,
     },
-    /// Fetch and display a manifest for a specific version
+    /// Fetch and display a manifest for a specific version.
     Manifest { version: String },
     /// Compute job commands (run, attach).
     Job {
@@ -119,14 +121,24 @@ enum Commands {
     GenerateSecret,
     /// Mint a long-lived token for a specific subject, e.g., a game client or build pipeline.
     Mint {
-        /// The subject name (e.g. "game_client_v1")
+        /// The subject name, e.g.,
+        ///   - `game_client_v1`
+        ///   - `ci`
         subject: String,
 
-        /// Duration in seconds (default: 1 year)
+        /// Duration in seconds.
+        ///   - Defaults to 1 year.
         #[arg(short, long)]
         duration: Option<u64>,
 
-        /// Optional scopes (comma separated, e.g. "read,write")
+        /// Optional [`scopes`], e.g.,
+        ///   - `read`/`write`
+        ///   - `asset:upload`/`asset:download`
+        ///   - `manifest:publish`/`manifest:download`
+        ///   - `job:run`/`job:attach`
+        ///   - etc...
+        ///
+        /// See [`scopes`].
         #[arg(short = 'S', long, value_delimiter = ',', default_value = "read")]
         scopes: Vec<String>,
     },
@@ -134,7 +146,7 @@ enum Commands {
 
 #[derive(Subcommand, Debug)]
 pub enum ComputeCommands {
-    /// Run a new compute job
+    /// Run a new compute job.
     Run {
         /// Image to run, can be [`None`] if the backend uses a base image.
         #[arg(short, long)]
@@ -152,11 +164,11 @@ pub enum ComputeCommands {
         #[arg(short, long)]
         profile: Option<String>,
 
-        /// Command to execute
+        /// Command to execute.
         #[arg(last = true)]
         cmd: Vec<String>,
 
-        /// Attach immediately after starting
+        /// Attach immediately after starting.
         #[arg(short, long)]
         attach: bool,
 
@@ -168,13 +180,30 @@ pub enum ComputeCommands {
         #[arg(short, long)]
         remove: bool,
 
-        /// Environment variables (e.g. --env REPO_URL=... --env FOO=bar)
+        /// Environment variables, e.g.,
+        ///  - `--env REPO_URL=...`
+        ///  - `--env FOO=bar`
         #[arg(short, long, value_name = "KEY=VALUE")]
         env: Vec<String>,
     },
 
-    /// Attach to a running compute job
+    /// Attach to a running compute job.
     Attach {
+        /// Job ID
+        id: String,
+    },
+    /// Stop a running job.
+    Stop {
+        /// Job ID
+        id: String,
+    },
+    /// Fetch logs for a job (non-streaming).
+    Logs {
+        /// Job ID
+        id: String,
+    },
+    /// Get the current status and outputs of a job.
+    Status {
         /// Job ID
         id: String,
     },
@@ -193,14 +222,14 @@ async fn main() -> anyhow::Result<()> {
                 .map(char::from)
                 .collect();
 
-            println!("🔑 Generated JWT Secret:");
+            println!("🔑  Generated JWT Secret:");
             println!("\n    {}\n", secret);
             println!("Copy this value and set it on your server:");
             println!("set AQUILA_JWT_SECRET=\"{}\"", secret);
         }
         Commands::Login => {
             let login_url = format!("{}/auth/login", cli.url.trim_end_matches('/'));
-            println!("🌐 To authenticate, please visit:");
+            println!("🌐  To authenticate, please visit:");
             println!("\n  {}\n", login_url);
             println!("After logging in, copy the 'token' from the JSON response and set it:");
             println!("set AQUILA_TOKEN=\"...\"");
@@ -210,10 +239,10 @@ async fn main() -> anyhow::Result<()> {
                 println!("📤  Streaming...");
                 client.upload_stream(&path).await?
             } else {
-                println!("📤 Uploading blob...");
+                println!("📤  Uploading blob...");
                 client.upload_file(&path).await?
             };
-            println!("✅ Upload successful! Hash: {hash}");
+            println!("✔️  Upload successful! Hash: {hash}");
         }
         Commands::Publish {
             dir,
@@ -221,9 +250,9 @@ async fn main() -> anyhow::Result<()> {
             stream,
             no_latest,
         } => {
-            println!("🚀 Publishing version '{version}' from {dir:?}...");
+            println!("🚀  Publishing version '{version}' from {dir:?}...");
             if stream {
-                println!("ℹ️ Using streaming upload mode");
+                println!("ℹ️  Using streaming upload mode");
             }
 
             let mut assets = HashMap::new();
@@ -242,7 +271,7 @@ async fn main() -> anyhow::Result<()> {
                     .to_string_lossy()
                     .replace('\\', "/");
 
-                println!("Processing: {relative_path}");
+                println!("  - Processing: {relative_path}");
 
                 let hash = if stream {
                     client.upload_stream(path).await?
@@ -278,11 +307,11 @@ async fn main() -> anyhow::Result<()> {
             let latest = !no_latest;
             client.publish_manifest(&manifest, latest).await?;
 
-            println!("✅ Successfully published version {version} with {count} assets.",);
+            println!("✔️  Successfully published version {version} with {count} assets.",);
             if latest {
-                println!("🏷️ Tagged as 'latest'.");
+                println!("🏷️  Tagged as 'latest'.");
             } else {
-                println!("ℹ️ Skipped 'latest' tag update.");
+                println!("ℹ️  Skipped 'latest' tag update.");
             }
         }
         Commands::Download { hash, output } => {
@@ -294,10 +323,10 @@ async fn main() -> anyhow::Result<()> {
             }
             tokio::fs::write(&output, data).await?;
 
-            println!("✅ Saved to {output:?}");
+            println!("💾  Saved to {output:?}");
         }
         Commands::Manifest { version } => {
-            println!("🔍 Fetching manifest for version '{}'...", version);
+            println!("🔍  Fetching manifest for version '{}'...", version);
             let manifest = client.fetch_manifest(&version).await?;
             println!("{}", serde_json::to_string_pretty(&manifest)?);
         }
@@ -332,20 +361,43 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 let res = client.run(req).await?;
-                println!("⚙️ Job started: {} {:?}", res.id, res.status);
+                println!("💼  Job started...");
+                println!("  - ID:     {}", res.id);
+                println!("  - State:  {:?}", res.status.state);
+                if let Some(msg) = res.status.message {
+                    println!("   Info:   {}", msg);
+                }
 
                 if attach {
-                    println!("🪝 Attaching...");
+                    println!("🪝  Attaching...");
                     if let Err(e) = client.attach(&res.id).await {
-                        eprintln!("❌ Attach interrupted: {}", e);
+                        eprintln!("❌  Attach interrupted: {}", e);
                     }
-                    println!("✅ Job finished!");
+                    println!("✔️  Job finished!");
                 }
             }
 
             ComputeCommands::Attach { id } => {
-                println!("🪝 Attaching to job {}...", id);
+                println!("🪝  Attaching to job {}...", id);
                 client.attach(&id).await?;
+            }
+
+            ComputeCommands::Stop { id } => {
+                println!("🛑  Stopping job {}...", id);
+                client.stop_job(&id).await?;
+                println!("✔️  Job stopped.");
+            }
+
+            ComputeCommands::Logs { id } => {
+                println!("🪵  Getting job logs {}...", id);
+                let logs = client.get_job_logs(&id).await?;
+                print!("{}", logs);
+            }
+
+            ComputeCommands::Status { id } => {
+                println!("🏢  Getting job Status {}...", id);
+                let status = client.get_job_status(&id).await?;
+                println!("{}", serde_json::to_string_pretty(&status)?);
             }
         },
         Commands::Mint {
@@ -359,11 +411,11 @@ async fn main() -> anyhow::Result<()> {
                 Some(scopes)
             };
 
-            println!("🔑 Minting token for '{}'...", subject);
+            println!("🔑  Minting token for '{}'...", subject);
 
             let token = client.mint_token(&subject, duration, o_scopes).await?;
 
-            println!("✅ SUCCESS! Here is your new token:\n");
+            println!("✔️  SUCCESS! Here is your new token:\n");
             println!("{token}");
             println!("\n(Keep this token safe! It cannot be retrieved again.)");
         }

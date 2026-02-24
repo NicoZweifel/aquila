@@ -192,6 +192,15 @@ pub trait ComputeBackend: Send + Sync + 'static + Clone {
     ) -> impl Future<
         Output = Result<BoxStream<'static, Result<LogOutput, ComputeError>>, ComputeError>,
     > + Send;
+
+    /// Forces a running job to stop.
+    fn stop(&self, id: &str) -> impl Future<Output = Result<(), ComputeError>> + Send;
+
+    /// Fetches logs for a specific job.
+    fn get_logs(&self, id: &str) -> impl Future<Output = Result<String, ComputeError>> + Send;
+
+    /// Retrieves the current status.
+    fn get_status(&self, id: &str) -> impl Future<Output = Result<JobStatus, ComputeError>> + Send;
 }
 
 /// A [`ComputeBackend`] that returns [`ComputeError::Unsupported`] for all operations.
@@ -211,6 +220,18 @@ impl ComputeBackend for NoComputeBackend {
         &self,
         _id: &str,
     ) -> Result<BoxStream<'static, Result<LogOutput, ComputeError>>, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn stop(&self, _id: &str) -> Result<(), ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn get_logs(&self, _id: &str) -> Result<String, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn get_status(&self, _id: &str) -> Result<JobStatus, ComputeError> {
         Err(ComputeError::Unsupported("Not supported!".to_string()))
     }
 }

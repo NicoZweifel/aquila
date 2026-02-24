@@ -219,41 +219,41 @@ impl AquilaClient {
             hasher.update(&buffer[..n]);
         }
 
-        let local_hash = hex::encode(hasher.finalize());
+        let hash = hex::encode(hasher.finalize());
         let file = File::open(path).await?;
         let size = file.metadata().await?.len();
         let body = reqwest::Body::wrap_stream(ReaderStream::new(file));
-        let path = ASSETS_STREAM_BY_HASH.replace("{hash}", &local_hash);
+        let path = ASSETS_STREAM_BY_HASH.replace("{hash}", &hash);
         let url = format!("{}{}", self.base_url, path);
 
-        let response = self
+        let res = self
             .auth_request(self.client.put(&url))
             .header("Content-Length", size)
             .body(body)
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
             return Err(AquilaClientError::ServerError(status, text));
         }
 
-        Ok(local_hash)
+        Ok(hash)
     }
 
     pub async fn publish_manifest(&self, manifest: &AssetManifest, latest: bool) -> Result<()> {
         let url = format!("{}{}", self.base_url, MANIFEST);
-        let response = self
+        let res = self
             .auth_request(self.client.post(&url))
             .query(&[("latest", latest)])
             .json(manifest)
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
             return Err(AquilaClientError::ServerError(status, text));
         }
 
@@ -263,38 +263,82 @@ impl AquilaClient {
     pub async fn download_file(&self, hash: &str) -> Result<Vec<u8>> {
         let path = ASSETS_BY_HASH.replace("{hash}", hash);
         let url = format!("{}{}", self.base_url, path);
-        let response = self.auth_request(self.client.get(&url)).send().await?;
-        if !response.status().is_success() {
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+        if !res.status().is_success() {
             return Err(AquilaClientError::ServerError(
-                response.status(),
+                res.status(),
                 "Download failed".to_string(),
             ));
         }
 
-        let bytes = response.bytes().await?;
+        let bytes = res.bytes().await?;
         Ok(bytes.to_vec())
     }
 
     pub async fn run(&self, task: JobRequest) -> Result<JobResult> {
         let url = format!("{}{}", self.base_url, JOBS_RUN);
-        let response = self
+        let res = self
             .auth_request(self.client.post(&url))
             .json(&task)
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
             return Err(AquilaClientError::ServerError(status, text));
         }
 
-        let data: JobResult = response
+        let result: JobResult = res
             .json()
             .await
             .map_err(|_| AquilaClientError::Validation("Failed to parse job result".into()))?;
 
-        Ok(data)
+        Ok(result)
+    }
+
+    pub async fn stop_job(&self, job_id: &str) -> Result<()> {
+        let url = format!("{}/jobs/{}/stop", self.base_url, job_id);
+        let res = self.auth_request(self.client.post(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+        Ok(())
+    }
+
+    pub async fn get_job_logs(&self, job_id: &str) -> Result<String> {
+        let url = format!("{}/jobs/{}/logs", self.base_url, job_id);
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let logs = res.text().await?;
+        Ok(logs)
+    }
+
+    pub async fn get_job_status(&self, job_id: &str) -> Result<JobStatus> {
+        let url = format!("{}/jobs/{}", self.base_url, job_id);
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let status: JobStatus = res
+            .json()
+            .await
+            .map_err(|e| AquilaClientError::Validation(format!("Failed to parse status: {}", e)))?;
+
+        Ok(status)
     }
 
     pub async fn attach(&self, job_id: &str) -> Result<()> {

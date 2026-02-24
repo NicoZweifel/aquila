@@ -31,6 +31,7 @@ async fn main() {
     let jwt_secret = env::var("AQUILA_JWT_SECRET").unwrap_or("TOP_SECRET".to_string());
 
     // Config
+    // If no org is defined, any GitHub user can sign in.
     let required_org = env::var("AQUILA_GITHUB_ORG").ok();
     // Must match the callback route in the GitHub app and the server config callback, see below.
     let redirect_uri = "http://localhost:3000/auth/callback".to_string();
@@ -41,6 +42,10 @@ async fn main() {
                 client_id,
                 client_secret,
                 required_org,
+                // All users will get these by default, these can be managed by the `PermissionService`.
+                // If you are not defining a required organization in the configuration above,
+                // you should consider passing an empty vec by default and using the `PermissionService` to grant certain users permissions.
+                default_scopes: vec!["read".to_string(), "write".to_string()],
             })
         })
         .ok();

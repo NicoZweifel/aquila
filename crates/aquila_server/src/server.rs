@@ -1,4 +1,5 @@
-use crate::{api, prelude::*};
+use crate::api::{asset, auth, job, manifest};
+use crate::prelude::*;
 use aquila_core::prelude::{routes::*, *};
 use axum::{
     Router,
@@ -40,16 +41,19 @@ impl AquilaServer {
         let AquilaServerConfig { callback, .. } = self.config;
         Router::new()
             .route(HEALTH, get(|| async { "OK" }))
-            .route(AUTH_LOGIN, get(api::auth_login))
-            .route(AUTH_TOKEN, post(api::issue_token))
-            .route(callback.as_str(), get(api::auth_callback))
-            .route(ASSETS_BY_HASH, get(api::download_asset))
-            .route(ASSETS_STREAM_BY_HASH, put(api::upload_asset_stream))
-            .route(ASSETS, post(api::upload_asset))
-            .route(MANIFEST_BY_VERSION, get(api::get_manifest))
-            .route(MANIFEST, post(api::publish_manifest))
-            .route(JOBS_RUN, post(api::run))
-            .route(JOBS_ATTACH, get(api::attach))
+            .route(AUTH_LOGIN, get(auth::login))
+            .route(AUTH_TOKEN, post(auth::issue_token))
+            .route(callback.as_str(), get(auth::callback))
+            .route(ASSETS_BY_HASH, get(asset::download))
+            .route(ASSETS_STREAM_BY_HASH, put(asset::upload))
+            .route(ASSETS, post(asset::upload_asset))
+            .route(MANIFEST_BY_VERSION, get(manifest::get))
+            .route(MANIFEST, post(manifest::publish))
+            .route(JOBS_RUN, post(job::run))
+            .route(JOBS_ATTACH, get(job::attach))
+            .route(JOBS_STOP, post(job::stop))
+            .route(JOBS_LOGS, get(job::get_logs))
+            .route(JOBS_STATUS, get(job::get_status))
             .layer(DefaultBodyLimit::disable())
             .layer(TraceLayer::new_for_http())
             .with_state(AppState { services })

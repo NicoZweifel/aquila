@@ -46,6 +46,7 @@ pub struct GithubConfig {
     pub client_secret: String,
     pub redirect_uri: String,
     pub required_org: Option<String>,
+    pub default_scopes: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -182,16 +183,20 @@ impl AuthProvider for GithubAuthProvider {
 
         let gh_user = self.fetch_user(token).await?;
 
-        if let Some(cfg) = &self.config
+        let scopes = if let Some(cfg) = &self.config
             && let Some(org) = &cfg.required_org
         {
             self.check_org_membership(token, &gh_user.login, org)
                 .await?;
-        }
+
+            cfg.default_scopes.clone()
+        } else {
+            Default::default()
+        };
 
         let user = User {
             id: gh_user.login,
-            scopes: vec!["read".to_string(), "write".to_string()],
+            scopes,
         };
 
         {
