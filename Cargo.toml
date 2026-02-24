@@ -1,6 +1,6 @@
 [package]
 name = "aquila"
-version = "0.7.0-rc.12"
+version = "0.7.0-rc.13"
 edition = "2024"
 description = "A modular asset server with support for oauth and multiple file backends, meant for serving game assets but could probably be used for other things too."
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
-bevy = { version = "0.17", default-features = false }
+bevy = { version = "0.18", default-features = false }
 tokio = { version = "1.4", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 futures = "0.3"
@@ -44,16 +44,16 @@ docker = ["dep:aquila_compute_docker"]
 aws = ["dep:aquila_compute_aws"]
 
 [dependencies]
-aquila_core = { path = "crates/aquila_core", version = "0.7.0-rc.12" }
-aquila_server = { path = "crates/aquila_server", version = "0.7.0-rc.12", optional = true }
-aquila_client = { path = "crates/aquila_client", version = "0.7.0-rc.12", optional = true }
-aquila_fs = { path = "crates/aquila_fs", version = "0.7.0-rc.12", optional = true }
-aquila_s3 = { path = "crates/aquila_s3", version = "0.7.0-rc.12", optional = true }
-aquila_opendal = { path = "crates/aquila_opendal", version = "0.7.0-rc.12", optional = true }
-aquila_auth_mock = { path = "crates/aquila_auth_mock", version = "0.7.0-rc.12", optional = true }
-aquila_auth_github = { path = "crates/aquila_auth_github", version = "0.7.0-rc.12", optional = true }
-aquila_compute_aws = { path = "crates/aquila_compute_aws", version = "0.7.0-rc.12", optional = true }
-aquila_compute_docker = { path = "crates/aquila_compute_docker", version = "0.7.0-rc.12", optional = true }
+aquila_core = { path = "crates/aquila_core", version = "0.7.0-rc.13" }
+aquila_server = { path = "crates/aquila_server", version = "0.7.0-rc.13", optional = true }
+aquila_client = { path = "crates/aquila_client", version = "0.7.0-rc.13", optional = true }
+aquila_fs = { path = "crates/aquila_fs", version = "0.7.0-rc.13", optional = true }
+aquila_s3 = { path = "crates/aquila_s3", version = "0.7.0-rc.13", optional = true }
+aquila_opendal = { path = "crates/aquila_opendal", version = "0.7.0-rc.13", optional = true }
+aquila_auth_mock = { path = "crates/aquila_auth_mock", version = "0.7.0-rc.13", optional = true }
+aquila_auth_github = { path = "crates/aquila_auth_github", version = "0.7.0-rc.13", optional = true }
+aquila_compute_aws = { path = "crates/aquila_compute_aws", version = "0.7.0-rc.13", optional = true }
+aquila_compute_docker = { path = "crates/aquila_compute_docker", version = "0.7.0-rc.13", optional = true }
 
 [dev-dependencies]
 bevy = { version = "0.17", features = ["zstd_rust"] }
