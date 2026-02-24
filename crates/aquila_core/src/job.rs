@@ -65,6 +65,7 @@ impl JobStatus {
     pub fn pending() -> Self {
         Self {
             timestamp: Some(chrono::Utc::now().to_rfc3339()),
+            state: JobState::Pending,
             ..Default::default()
         }
     }
@@ -72,6 +73,7 @@ impl JobStatus {
     pub fn running() -> Self {
         Self {
             timestamp: Some(chrono::Utc::now().to_rfc3339()),
+            state: JobState::Running,
             ..Default::default()
         }
     }
