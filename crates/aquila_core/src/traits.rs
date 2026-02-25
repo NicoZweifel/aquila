@@ -141,8 +141,6 @@ impl PermissionService for NoPermissionService {
 /// * **`read`** grants:
 ///     * `asset:download`
 ///     * `manifest:read`
-/// * **`github-actions`** (Subject) grants:
-///     * `job:run`, `job:attach`
 #[derive(Clone, Debug, Default)]
 pub struct StandardPermissionService;
 
@@ -161,7 +159,7 @@ impl StandardPermissionService {
 
     /// Elevates the user and fills `read` scopes.
     fn elevate_read(mut user: User) -> Result<User, AuthError> {
-        if user.scopes.iter().any(|s| s == "read") {
+        if user.scopes.iter().any(|s| s == READ) {
             user.scopes.push(ASSET_DOWNLOAD.into());
             user.scopes.push(MANIFEST_READ.into());
         }
