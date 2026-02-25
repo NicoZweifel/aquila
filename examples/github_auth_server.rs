@@ -31,7 +31,8 @@ async fn main() {
     let jwt_secret = env::var("AQUILA_JWT_SECRET").unwrap_or("TOP_SECRET".to_string());
 
     // Config
-    // If no org is defined, any GitHub user can sign in.
+    // If no org is defined, any GitHub user can sign in. You probably should panic if this is empty in production.
+    // For the purposes of this example we'll leave it optional.
     let required_org = env::var("AQUILA_GITHUB_ORG").ok();
     // Must match the callback route in the GitHub app and the server config callback, see below.
     let redirect_uri = "http://localhost:3000/auth/callback".to_string();
