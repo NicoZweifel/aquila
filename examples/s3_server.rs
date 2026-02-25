@@ -16,6 +16,7 @@
 
 use aquila::prelude::*;
 use aws_config::BehaviorVersion;
+use aws_config::timeout::TimeoutConfig;
 use std::env;
 use std::time::Duration;
 
@@ -24,9 +25,18 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     // Config
-    let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
-    let s3_client = aws_sdk_s3::Client::new(&aws_config);
+    let timeout_config = TimeoutConfig::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .operation_timeout(Duration::from_secs(120))
+        .operation_attempt_timeout(Duration::from_secs(90))
+        .build();
 
+    let aws_config = aws_config::defaults(BehaviorVersion::latest())
+        .timeout_config(timeout_config)
+        .load()
+        .await;
+
+    let s3_client = aws_sdk_s3::Client::new(&aws_config);
     let bucket_name = env::var("S3_BUCKET").expect("S3_BUCKET env var required");
 
     // Providers & Services

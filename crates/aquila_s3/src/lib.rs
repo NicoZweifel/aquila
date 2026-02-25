@@ -41,13 +41,12 @@ use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::{ByteStream, SdkBody};
 use bytes::Bytes;
 use futures::stream::BoxStream;
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use http_body_util::StreamBody;
 use hyper::body::Frame;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, instrument};
 
 #[derive(Clone)]
@@ -57,16 +56,6 @@ pub struct S3Storage {
     prefix: String,
     /// If set, generate presigned URLs for this duration.
     presign_duration: Option<Duration>,
-}
-
-struct ChannelStream(mpsc::Receiver<Result<Bytes, std::io::Error>>);
-
-impl Stream for ChannelStream {
-    type Item = Result<Bytes, std::io::Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.0.poll_recv(cx)
-    }
 }
 
 impl S3Storage {
@@ -166,16 +155,20 @@ impl StorageBackend for S3Storage {
         debug!("Streaming to S3...");
         let (sender, receiver) = mpsc::channel(2);
         tokio::spawn(async move {
-            while let Some(res) = stream.next().await {
-                if sender.send(res).await.is_err() {
+            while let Some(item) = stream.next().await {
+                let is_err = item.is_err();
+                if sender.send(item).await.is_err() {
+                    break;
+                }
+
+                if is_err {
                     break;
                 }
             }
         });
 
-        let sync_stream = ChannelStream(receiver);
         let byte_stream = ByteStream::new(SdkBody::from_body_1_x(StreamBody::new(
-            sync_stream.map_ok(Frame::data),
+            ReceiverStream::new(receiver).map_ok(Frame::data),
         )));
 
         let mut req = self
