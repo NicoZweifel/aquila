@@ -52,15 +52,17 @@ pub async fn issue_token<S: AquilaServices>(
 ) -> Result<impl IntoResponse, ApiError> {
     let scopes = req.scopes.unwrap_or_else(|| vec![READ.to_string()]);
     let is_admin = user.scopes.iter().any(|s| s == ADMIN);
-    let privileged_scopes = [ADMIN, WRITE];
 
     if !is_admin {
-        for scope in &scopes {
-            if privileged_scopes.contains(&scope.as_str()) {
-                return Err(ApiError::from(AuthError::Forbidden(format!(
-                    "Insufficient permissions to mint '{scope}' token."
-                ))));
-            }
+        let privileged_scopes = [ADMIN, WRITE];
+        let violation = scopes
+            .iter()
+            .find(|s| privileged_scopes.contains(&s.as_str()));
+
+        if let Some(scope) = violation {
+            return Err(ApiError::from(AuthError::Forbidden(format!(
+                "Insufficient permissions to mint '{scope}' token."
+            ))));
         }
     }
 
