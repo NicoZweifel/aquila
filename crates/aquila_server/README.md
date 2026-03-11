@@ -15,7 +15,7 @@ the following scopes in their `User` object:
 
 * **`read`**: to download assets, fetch manifests.
 * **`write`**: to upload assets, publish manifests.
-* * **`admin`**: Full access.
+* **`admin`**: Full access.
 
 ### Example
 
