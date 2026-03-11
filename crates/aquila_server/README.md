@@ -15,7 +15,7 @@ the following scopes in their `User` object:
 
 * **`read`**: to download assets, fetch manifests.
 * **`write`**: to upload assets, publish manifests.
-* * **`admin`**: Full access. (Note: admin/write tokens cannot be minted via the API and only write access can mint tokens).
+* * **`admin`**: Full access.
 
 ### Example
 
