@@ -46,6 +46,7 @@ pub struct GithubConfig {
     pub client_secret: String,
     pub redirect_uri: String,
     pub required_org: Option<String>,
+    pub default_scopes: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -73,7 +74,7 @@ impl GithubAuthProvider {
         let config = self
             .config
             .as_ref()
-            .ok_or(AuthError::Generic("OAuth not configured".into()))?;
+            .ok_or(AuthError::System("OAuth not configured".into()))?;
 
         let params = [
             ("client_id", &config.client_id),
@@ -89,7 +90,7 @@ impl GithubAuthProvider {
             .form(&params)
             .send()
             .await
-            .map_err(|e| AuthError::Generic(format!("Network error: {}", e)))?;
+            .map_err(|e| AuthError::System(format!("Network error: {}", e)))?;
 
         #[derive(Deserialize)]
         struct TokenRes {
@@ -99,7 +100,7 @@ impl GithubAuthProvider {
         let token_res: TokenRes = res
             .json()
             .await
-            .map_err(|_| AuthError::Generic("Failed to parse GitHub token response".into()))?;
+            .map_err(|_| AuthError::System("Failed to parse GitHub token response".into()))?;
 
         Ok(token_res.access_token)
     }
@@ -117,14 +118,14 @@ impl GithubAuthProvider {
             .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
-            .map_err(|e| AuthError::Generic(format!("GitHub API error: {}", e)))?;
+            .map_err(|e| AuthError::System(format!("GitHub API error: {}", e)))?;
 
         if res.status() == StatusCode::UNAUTHORIZED {
-            return Err(AuthError::InvalidToken);
+            return Err(AuthError::Invalid);
         }
 
         if !res.status().is_success() {
-            return Err(AuthError::Generic(format!(
+            return Err(AuthError::System(format!(
                 "GitHub returned {}",
                 res.status()
             )));
@@ -132,7 +133,7 @@ impl GithubAuthProvider {
 
         res.json::<GithubUser>()
             .await
-            .map_err(|_| AuthError::Generic("Failed to parse GitHub response".into()))
+            .map_err(|_| AuthError::System("Failed to parse GitHub response".into()))
     }
 
     async fn check_org_membership(
@@ -148,7 +149,7 @@ impl GithubAuthProvider {
             .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
-            .map_err(|e| AuthError::Generic(format!("Membership check failed: {}", e)))?;
+            .map_err(|e| AuthError::System(format!("Membership check failed: {}", e)))?;
 
         if res.status() == StatusCode::NO_CONTENT {
             Ok(())
@@ -163,6 +164,10 @@ impl GithubAuthProvider {
 
 impl AuthProvider for GithubAuthProvider {
     async fn verify(&self, token: &str) -> Result<User, AuthError> {
+        if token.is_empty() {
+            return Err(AuthError::Missing);
+        }
+
         let token_hash = self.hash_token(token);
 
         {
@@ -178,16 +183,20 @@ impl AuthProvider for GithubAuthProvider {
 
         let gh_user = self.fetch_user(token).await?;
 
-        if let Some(cfg) = &self.config
+        let scopes = if let Some(cfg) = &self.config
             && let Some(org) = &cfg.required_org
         {
             self.check_org_membership(token, &gh_user.login, org)
                 .await?;
-        }
+
+            cfg.default_scopes.clone()
+        } else {
+            Default::default()
+        };
 
         let user = User {
             id: gh_user.login,
-            scopes: vec!["read".to_string(), "write".to_string()],
+            scopes,
         };
 
         {

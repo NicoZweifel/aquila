@@ -1,6 +1,6 @@
-//! # Simple Server Example
+//! # Docker Server Example
 //!
-//! Showcases a minimal [`AquilaServer`] using the local filesystem, no compute backend to run jobs and mock authentication.
+//! Showcases a minimal [`AquilaServer`] using the local [`FileSystemStorage`], a [`DockerComputeBackend`] and mock authentication.
 //!
 //! ## Usage
 //!
@@ -9,6 +9,7 @@
 //! ```
 
 use aquila::prelude::*;
+use aquila_compute_docker::DockerComputeBackend;
 use std::env;
 
 #[tokio::main]
@@ -21,11 +22,11 @@ async fn main() {
     // Don't use this in production! This is just for demonstration/testing purposes
     let auth = AllowAllAuth; // e.g., use GithubAuthProvider or your own instead
 
-    // JWT is not required for this example, see `github_auth_server.rs` for an example using `GithubAuthProvider` and `JwtServiceAuthProvider`.
+    // JWT is not required for this example,
+    // see `github_auth_server.rs` for an example using `GithubAuthProvider` and `JwtServiceAuthProvider`.
     let jwt = NoJwtBackend;
 
-    // Compute is not required for this example, see `docker_server.rs` for an example using `DockerComputeBackend`.
-    let compute = NoComputeBackend;
+    let compute = DockerComputeBackend::connect_local().await.unwrap();
 
     // No Permissions Service required for this example,
     // see `github_auth_server.rs` for an example using [`StandardPermissionsService`] to map scopes.

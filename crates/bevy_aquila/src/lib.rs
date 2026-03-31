@@ -32,7 +32,7 @@
 //!
 
 use aquila_client::{AquilaClient, AquilaClientError};
-use aquila_core::manifest::AssetManifest;
+use aquila_core::asset::AssetManifest;
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_asset::io::{

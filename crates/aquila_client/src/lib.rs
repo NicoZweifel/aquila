@@ -13,7 +13,7 @@
 //!
 //! ```no_run
 //!  use aquila_client::AquilaClient;
-//!  use aquila_core::manifest::{AssetManifest, AssetInfo};
+//!  use aquila_core::asset::{AssetManifest, AssetInfo};
 //!  use std::path::Path;
 //!  use std::collections::HashMap;
 //!
@@ -42,16 +42,19 @@
 //! }
 //! ```
 
-use aquila_core::manifest::AssetManifest;
-use reqwest::{Client, StatusCode};
+use aquila_core::prelude::{routes::*, *};
+use futures_util::{SinkExt, StreamExt};
+use reqwest::{Client, StatusCode, Url};
 use sha2::{Digest, Sha256};
+use std::io::Write;
 use std::path::Path;
-
+use std::str::FromStr;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_util::io::ReaderStream;
 
 #[derive(Error, Debug)]
@@ -67,6 +70,15 @@ pub enum AquilaClientError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Connection error: {0}")]
+    Connection(String),
+
+    #[error("Invalid URL: {0}")]
+    UrlParse(#[from] url::ParseError),
+
+    #[error("WebSocket error: {0}")]
+    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
 }
 
 pub type Result<T> = std::result::Result<T, AquilaClientError>;
@@ -110,7 +122,8 @@ impl AquilaClient {
     }
 
     pub async fn fetch_manifest(&self, version: &str) -> Result<AssetManifest> {
-        let url = format!("{}/manifest/{version}", self.base_url);
+        let path = MANIFEST_BY_VERSION.replace("{version}", version);
+        let url = format!("{}{}", self.base_url, path);
         let response = self.auth_request(self.client.get(&url)).send().await?;
 
         if !response.status().is_success() {
@@ -133,7 +146,7 @@ impl AquilaClient {
         duration_seconds: Option<u64>,
         scopes: Option<Vec<String>>,
     ) -> Result<String> {
-        let url = format!("{}/auth/token", self.base_url);
+        let url = format!("{}{}", self.base_url, AUTH_TOKEN);
 
         let req = CreateTokenRequest {
             subject: subject.to_string(),
@@ -170,7 +183,7 @@ impl AquilaClient {
         hasher.update(&buffer);
         let local_hash = hex::encode(hasher.finalize());
 
-        let url = format!("{}/assets", self.base_url);
+        let url = format!("{}{}", self.base_url, ASSETS);
         let response = self
             .auth_request(self.client.post(&url))
             .body(buffer)
@@ -206,40 +219,41 @@ impl AquilaClient {
             hasher.update(&buffer[..n]);
         }
 
-        let local_hash = hex::encode(hasher.finalize());
+        let hash = hex::encode(hasher.finalize());
         let file = File::open(path).await?;
         let size = file.metadata().await?.len();
         let body = reqwest::Body::wrap_stream(ReaderStream::new(file));
-        let url = format!("{}/assets/stream/{}", self.base_url, local_hash);
+        let path = ASSETS_STREAM_BY_HASH.replace("{hash}", &hash);
+        let url = format!("{}{}", self.base_url, path);
 
-        let response = self
+        let res = self
             .auth_request(self.client.put(&url))
             .header("Content-Length", size)
             .body(body)
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
             return Err(AquilaClientError::ServerError(status, text));
         }
 
-        Ok(local_hash)
+        Ok(hash)
     }
 
     pub async fn publish_manifest(&self, manifest: &AssetManifest, latest: bool) -> Result<()> {
-        let url = format!("{}/manifest", self.base_url);
-        let response = self
+        let url = format!("{}{}", self.base_url, MANIFEST);
+        let res = self
             .auth_request(self.client.post(&url))
             .query(&[("latest", latest)])
             .json(manifest)
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
             return Err(AquilaClientError::ServerError(status, text));
         }
 
@@ -247,16 +261,182 @@ impl AquilaClient {
     }
 
     pub async fn download_file(&self, hash: &str) -> Result<Vec<u8>> {
-        let url = format!("{}/assets/{hash}", self.base_url);
-        let response = self.auth_request(self.client.get(&url)).send().await?;
-        if !response.status().is_success() {
+        let path = ASSETS_BY_HASH.replace("{hash}", hash);
+        let url = format!("{}{}", self.base_url, path);
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+        if !res.status().is_success() {
             return Err(AquilaClientError::ServerError(
-                response.status(),
+                res.status(),
                 "Download failed".to_string(),
             ));
         }
 
-        let bytes = response.bytes().await?;
+        let bytes = res.bytes().await?;
         Ok(bytes.to_vec())
+    }
+
+    pub async fn run(&self, task: JobRequest) -> Result<JobResult> {
+        let url = format!("{}{}", self.base_url, JOBS_RUN);
+        let res = self
+            .auth_request(self.client.post(&url))
+            .json(&task)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let result: JobResult = res
+            .json()
+            .await
+            .map_err(|_| AquilaClientError::Validation("Failed to parse job result".into()))?;
+
+        Ok(result)
+    }
+
+    pub async fn stop_job(&self, job_id: &str) -> Result<()> {
+        let url = format!("{}/jobs/{}/stop", self.base_url, job_id);
+        let res = self.auth_request(self.client.post(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+        Ok(())
+    }
+
+    pub async fn get_job_logs(&self, job_id: &str) -> Result<String> {
+        let url = format!("{}/jobs/{}/logs", self.base_url, job_id);
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let logs = res.text().await?;
+        Ok(logs)
+    }
+
+    pub async fn get_job_status(&self, job_id: &str) -> Result<JobStatus> {
+        let url = format!("{}/jobs/{}", self.base_url, job_id);
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let status: JobStatus = res
+            .json()
+            .await
+            .map_err(|e| AquilaClientError::Validation(format!("Failed to parse status: {}", e)))?;
+
+        Ok(status)
+    }
+
+    pub async fn attach(&self, job_id: &str) -> Result<()> {
+        let path = JOBS_ATTACH.replace("{id}", job_id);
+        let url = format!("{}{}", self.base_url, path);
+        let ws_url = if Url::from_str(url.as_str())?.scheme() == "https" {
+            url.to_string().replace("https://", "wss://")
+        } else {
+            url.to_string().replace("http://", "ws://")
+        };
+
+        let mut req = ws_url.into_client_request()?;
+        if let Some(token) = &self.token {
+            let header_val = tokio_tungstenite::tungstenite::http::HeaderValue::from_str(&format!(
+                "Bearer {}",
+                token
+            ))
+            .map_err(|e| AquilaClientError::Validation(e.to_string()))?;
+            req.headers_mut().insert("Authorization", header_val);
+        }
+
+        let (stream, res) = tokio_tungstenite::connect_async(req)
+            .await
+            .map_err(|e| match e {
+                tokio_tungstenite::tungstenite::Error::Http(res) => {
+                    AquilaClientError::ServerError(res.status(), "Handshake rejected".into())
+                }
+                _ => AquilaClientError::WebSocket(e),
+            })?;
+
+        if res.status() != StatusCode::SWITCHING_PROTOCOLS {
+            return Err(AquilaClientError::ServerError(
+                res.status(),
+                "Upgrade failed".into(),
+            ));
+        }
+
+        let (mut write, mut read) = stream.split();
+
+        let heartbeat = tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                if write
+                    .send(tokio_tungstenite::tungstenite::Message::Ping(vec![].into()))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+
+        while let Some(msg) = read.next().await {
+            match msg {
+                Ok(tokio_tungstenite::tungstenite::Message::Binary(bin)) => {
+                    let log_entry: LogOutput = match serde_json::from_slice(&bin) {
+                        Ok(l) => l,
+                        Err(e) => {
+                            eprintln!("[Client Error] Failed to deserialize log: {}", e);
+                            continue;
+                        }
+                    };
+
+                    let prefix = if let Some(ts) = &log_entry.timestamp {
+                        format!("[{}] ", ts)
+                    } else {
+                        String::new()
+                    };
+
+                    match log_entry.source {
+                        LogSource::Stdout => {
+                            print!("{}{}", prefix, log_entry.message);
+                            let _ = std::io::stdout().flush();
+                        }
+                        LogSource::Stderr => {
+                            eprint!("{}{}", prefix, log_entry.message);
+                            let _ = std::io::stderr().flush();
+                        }
+                        LogSource::Console => {
+                            println!("\x1b[90m{}{}\x1b[0m", prefix, log_entry.message);
+                        }
+                    }
+                }
+                Ok(tokio_tungstenite::tungstenite::Message::Text(txt)) => {
+                    eprintln!("[System] {}", txt);
+                }
+                Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => break,
+                Err(e) => {
+                    heartbeat.abort();
+                    return Err(AquilaClientError::Connection(format!(
+                        "Connection error: {}",
+                        e
+                    )));
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
     }
 }

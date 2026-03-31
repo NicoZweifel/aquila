@@ -1,8 +1,32 @@
 use crate::error::*;
-use std::pin::Pin;
+use crate::prelude::{scopes::*, *};
 
 use bytes::Bytes;
-use futures::Stream;
+use futures::stream::BoxStream;
+
+/// A trait that acts as a Service Container for injecting dependencies into the server.
+///
+/// Prevents generics going viral.
+pub trait AquilaServices: Clone + Send + Sync + 'static {
+    type Storage: StorageBackend;
+    type Auth: AuthProvider;
+    type Compute: ComputeBackend;
+    type Jwt: JwtBackend;
+    type Permission: PermissionService;
+
+    /// The registered [`StorageBackend`]
+    fn storage(&self) -> &Self::Storage;
+    /// The registered [`AuthProvider`]
+    fn auth(&self) -> &Self::Auth;
+    /// The registered [`ComputeBackend`]
+    fn compute(&self) -> &Self::Compute;
+
+    /// The registered [`JwtBackend`]
+    fn jwt(&self) -> &Self::Jwt;
+
+    /// The registered [`PermissionService`]
+    fn permissions(&self) -> &Self::Permission;
+}
 
 /// A trait for injecting storage logic into the server.
 pub trait StorageBackend: Send + Sync + 'static + Clone {
@@ -17,11 +41,11 @@ pub trait StorageBackend: Send + Sync + 'static + Clone {
     fn write_stream(
         &self,
         _hash: &str,
-        _stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        _stream: BoxStream<'static, Result<Bytes, std::io::Error>>,
         _content_length: Option<u64>,
     ) -> impl Future<Output = Result<bool, StorageError>> + Send {
         async {
-            Err(StorageError::Generic(
+            Err(StorageError::Unsupported(
                 "Streaming not implemented for this backend".into(),
             ))
         }
@@ -79,9 +103,163 @@ pub trait AuthProvider: Send + Sync + 'static + Clone {
     /// Optional: Exchanges an authorization code for a User identity.
     fn exchange_code(&self, _code: &str) -> impl Future<Output = Result<User, AuthError>> + Send {
         async {
-            Err(AuthError::Generic(
+            Err(AuthError::Unsupported(
                 "Login flow not supported by this provider".into(),
             ))
         }
+    }
+}
+
+/// A trait for elevating user permissions by injecting scopes.
+///
+/// Implementations can fetch roles from a database, check config files, or apply static mappings.
+pub trait PermissionService: Send + Sync + 'static + Clone {
+    /// Elevates the user and fills scopes.
+    fn elevate(&self, user: User) -> impl Future<Output = Result<User, AuthError>> + Send;
+}
+
+/// A pass-through [`PermissionService`] that grants no additional scopes.
+///
+/// Use this when your [`AuthProvider`] already provides the exact granular scopes required
+/// by the API (e.g. `asset:upload`, `job:run`), or when using mock auth in tests/examples.
+#[derive(Clone, Debug, Default)]
+pub struct NoPermissionService;
+
+impl PermissionService for NoPermissionService {
+    async fn elevate(&self, user: User) -> Result<User, AuthError> {
+        Ok(user)
+    }
+}
+
+/// A [`PermissionService`] that maps standard `read`/`write` roles to application-specific capabilities.
+///
+/// # Mappings
+/// * **`write`** grants:
+///     * `asset:upload`, `asset:stream`
+///     * `manifest:publish`
+///     * `job:run`, `job:attach`
+/// * **`read`** grants:
+///     * `asset:download`
+///     * `manifest:read`
+#[derive(Clone, Debug, Default)]
+pub struct StandardPermissionService;
+
+impl StandardPermissionService {
+    /// Elevates the user and fills `write` scopes.
+    fn elevate_write(mut user: User) -> Result<User, AuthError> {
+        if user.scopes.iter().any(|s| s == WRITE) {
+            user.scopes.push(ASSET_UPLOAD.into());
+            user.scopes.push(MANIFEST_PUBLISH.into());
+            user.scopes.push(JOB_RUN.into());
+            user.scopes.push(JOB_ATTACH.into());
+        }
+
+        Ok(user)
+    }
+
+    /// Elevates the user and fills `read` scopes.
+    fn elevate_read(mut user: User) -> Result<User, AuthError> {
+        if user.scopes.iter().any(|s| s == READ) {
+            user.scopes.push(ASSET_DOWNLOAD.into());
+            user.scopes.push(MANIFEST_READ.into());
+        }
+
+        Ok(user)
+    }
+}
+
+impl PermissionService for StandardPermissionService {
+    /// Elevates the user and fills scopes.
+    async fn elevate(&self, user: User) -> Result<User, AuthError> {
+        Self::elevate_write(Self::elevate_read(user)?)
+    }
+}
+
+/// A trait for injecting compute logic into the server, e.g., running a build/bake pipeline.
+pub trait ComputeBackend: Send + Sync + 'static + Clone {
+    /// Initialize the backend, e.g., verify AWS credentials or Docker socket.
+    fn init(&self) -> impl Future<Output = Result<(), ComputeError>> + Send;
+
+    /// Runs a job and returns a [`JobResult`].
+    fn run(&self, req: JobRequest) -> impl Future<Output = Result<JobResult, ComputeError>> + Send;
+
+    /// Attaches to a running job to read a stream of logs.
+    fn attach(
+        &self,
+        id: &str,
+    ) -> impl Future<
+        Output = Result<BoxStream<'static, Result<LogOutput, ComputeError>>, ComputeError>,
+    > + Send;
+
+    /// Forces a running job to stop.
+    fn stop(&self, id: &str) -> impl Future<Output = Result<(), ComputeError>> + Send;
+
+    /// Fetches logs for a specific job.
+    fn get_logs(&self, id: &str) -> impl Future<Output = Result<String, ComputeError>> + Send;
+
+    /// Retrieves the current status.
+    fn get_status(&self, id: &str) -> impl Future<Output = Result<JobStatus, ComputeError>> + Send;
+}
+
+/// A [`ComputeBackend`] that returns [`ComputeError::Unsupported`] for all operations.
+#[derive(Clone)]
+pub struct NoComputeBackend;
+
+impl ComputeBackend for NoComputeBackend {
+    async fn init(&self) -> Result<(), ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn run(&self, _req: JobRequest) -> Result<JobResult, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn attach(
+        &self,
+        _id: &str,
+    ) -> Result<BoxStream<'static, Result<LogOutput, ComputeError>>, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn stop(&self, _id: &str) -> Result<(), ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn get_logs(&self, _id: &str) -> Result<String, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn get_status(&self, _id: &str) -> Result<JobStatus, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+}
+
+pub trait JwtBackend: Clone + Send + Sync + 'static {
+    fn mint(
+        &self,
+        subject: String,
+        scopes: Vec<String>,
+        duration_seconds: u64,
+    ) -> Result<String, AuthError>;
+
+    fn verify(&self, token: &str) -> Result<User, AuthError>;
+}
+
+/// A [`JwtBackend`] that returns [`AuthError::Unsupported`] for all operations.
+#[derive(Clone)]
+pub struct NoJwtBackend;
+
+impl JwtBackend for NoJwtBackend {
+    fn mint(
+        &self,
+        _subject: String,
+        _scopes: Vec<String>,
+        _duration_seconds: u64,
+    ) -> Result<String, AuthError> {
+        Err(AuthError::Unsupported("Not supported!".into()))
+    }
+
+    fn verify(&self, _token: &str) -> Result<User, AuthError> {
+        Err(AuthError::Unsupported("Not supported!".into()))
     }
 }

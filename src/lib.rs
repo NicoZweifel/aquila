@@ -6,22 +6,22 @@
 //!
 //! > *Your personal flying courier*
 //!
-//! A modular asset server with support for OAuth/CDNs/presigned URLs and multiple file backends, meant for serving game assets but could probably be used for other things too.
+//! A modular asset/build server with support for OAuth/CDNs/presigned URLs and multiple file backends, meant for serving game assets but could probably be used for other things too.
 //!
 //! > [!CAUTION]
 //! > This package is in early development!
 //!
 //! ## What is this for?
 //!
-//! During game development a way to serve assets remotely is often desired.
+//! During game development a way to serve and preprocess assets remotely is often desired.
 //! This can be either to fetch at build-time in a build environment or to serve them to your users at runtime,
 //! leading to complex setups involving git LFS or Perforce and build servers or worse - manual swapping of files.
 //!
 //! This crate aims at simplifying this process by providing a simple server, a client and a cli that can be used to serve versioned assets.
 //! At the moment, it supports:
 //!
+//! - Running compute jobs to preprocess assets or for literally anything else you can think of.
 //! - Serve assets to your game clients (through presigned URLs or a CDN if you want to)
-//! - Publish assets and manifests to a server
 //! - Streaming uploads for large files
 //! - Minting (read-only public) tokens
 //! - Authenticate users (custom or OAuth, see [`aquila_auth_mock`](/crates/aquila_auth_mock) and [`aquila_auth_github`](/crates/aquila_auth_github))
@@ -325,6 +325,16 @@ pub mod auth_github {
     pub use aquila_auth_github::*;
 }
 
+#[cfg(feature = "docker")]
+pub mod docker {
+    pub use aquila_compute_docker::*;
+}
+
+#[cfg(feature = "aws")]
+pub mod aws {
+    pub use aquila_compute_aws::*;
+}
+
 pub mod prelude {
     pub use aquila_core::prelude::*;
 
@@ -348,4 +358,10 @@ pub mod prelude {
 
     #[cfg(feature = "opendal")]
     pub use aquila_opendal::OpendalStorage;
+
+    #[cfg(feature = "docker")]
+    pub use aquila_compute_docker::DockerComputeBackend;
+
+    #[cfg(feature = "aws")]
+    pub use aquila_compute_aws::AwsBatchBackend;
 }

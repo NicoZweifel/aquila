@@ -24,9 +24,9 @@
 
 use aquila_core::prelude::*;
 use bytes::Bytes;
-use futures::{Stream, StreamExt};
+use futures::StreamExt;
+use futures::stream::BoxStream;
 use opendal::Operator;
-use std::pin::Pin;
 
 #[derive(Clone)]
 pub struct OpendalStorage {
@@ -46,7 +46,7 @@ impl OpendalStorage {
             .op
             .exists(path)
             .await
-            .map_err(|e| StorageError::Generic(e.to_string()))?;
+            .map_err(|e| StorageError::System(e.to_string()))?;
 
         if exists {
             println!("Blob already exists in opendal storage!");
@@ -68,7 +68,7 @@ impl StorageBackend for OpendalStorage {
         self.op
             .write(&path, data)
             .await
-            .map_err(|e| StorageError::Generic(format!("OpenDAL Write Error: {}", e)))?;
+            .map_err(|e| StorageError::System(format!("OpenDAL Write Error: {}", e)))?;
 
         Ok(true)
     }
@@ -76,7 +76,7 @@ impl StorageBackend for OpendalStorage {
     async fn write_stream(
         &self,
         hash: &str,
-        mut stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        mut stream: BoxStream<'static, Result<Bytes, std::io::Error>>,
         _content_length: Option<u64>,
     ) -> Result<bool, StorageError> {
         let path = hash.to_string();
@@ -88,20 +88,20 @@ impl StorageBackend for OpendalStorage {
             .op
             .writer(&path)
             .await
-            .map_err(|e| StorageError::Generic(format!("OpenDAL init error: {e}")))?;
+            .map_err(|e| StorageError::System(format!("OpenDAL init error: {e}")))?;
 
         while let Some(res) = stream.next().await {
             let chunk = res.map_err(StorageError::Io)?;
             writer
                 .write(chunk)
                 .await
-                .map_err(|e| StorageError::Generic(format!("OpenDAL write error: {e}")))?;
+                .map_err(|e| StorageError::System(format!("OpenDAL write error: {e}")))?;
         }
 
         writer
             .close()
             .await
-            .map_err(|e| StorageError::Generic(format!("OpenDAL close error: {e}")))?;
+            .map_err(|e| StorageError::System(format!("OpenDAL close error: {e}")))?;
 
         Ok(true)
     }
@@ -113,7 +113,7 @@ impl StorageBackend for OpendalStorage {
         self.op
             .write(&path, data)
             .await
-            .map_err(|e| StorageError::Generic(format!("OpenDAL Manifest Error: {e}")))?;
+            .map_err(|e| StorageError::System(format!("OpenDAL Manifest Error: {e}")))?;
 
         Ok(())
     }
@@ -124,7 +124,7 @@ impl StorageBackend for OpendalStorage {
         match self.op.read(&path).await {
             Ok(buffer) => Ok(buffer.to_bytes()),
             Err(e) if e.kind() == opendal::ErrorKind::NotFound => Err(StorageError::NotFound(path)),
-            Err(e) => Err(StorageError::Generic(e.to_string())),
+            Err(e) => Err(StorageError::System(e.to_string())),
         }
     }
 
@@ -138,6 +138,6 @@ impl StorageBackend for OpendalStorage {
         self.op
             .delete(&path)
             .await
-            .map_err(|e| StorageError::Generic(e.to_string()))
+            .map_err(|e| StorageError::System(e.to_string()))
     }
 }

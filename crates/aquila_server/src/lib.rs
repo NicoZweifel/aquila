@@ -33,16 +33,16 @@
 //! ```
 
 mod api;
-
-pub mod jwt;
-
 pub mod auth;
+pub mod jwt;
 pub mod server;
+pub mod services;
 pub mod state;
 
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::jwt::*;
     pub use crate::server::*;
+    pub use crate::services::*;
     pub use crate::state::*;
 }
