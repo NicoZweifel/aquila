@@ -281,6 +281,8 @@ I'd be willing to revisit this though if there's a better alternative.
 - multiple scopes, not just read/write/admin
 - I experimented with a VCSProvider trait to verify the version of the manifest against the VCS,
   but decided against it for now, but it definitely could be useful.
+- make tokio optional in the client/bevy_plugin or investigate if the additional runtime causes issues,
+  it might be fine for strictly loading assets, but that depends on the use-case to some extent.
 
 ## License
 
