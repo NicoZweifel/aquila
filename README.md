@@ -33,7 +33,7 @@ This crate is in early development and should not be used in production yet. You
 If you ship public read-only tokens to users, make sure you are aware of what that entails, e.g., how to invalidate and ship new ones in the case of abuse.
 
 > [!IMPORTANT]
-> Make sure you vet any auth providers and OAuth applications and its permissions that you intend to use thoroughly before using them in production, e.g. 
+> Make sure you vet any auth providers and OAuth applications and its permissions that you intend to use thoroughly before using them in production, e.g.
 > verify that you have configured an organization or scopes in the oauth app/provider.
 
 ## Ecosystem
@@ -278,7 +278,7 @@ I'd be willing to revisit this though if there's a better alternative.
 
 - add some tests
 - docker images, nix flakes (a simple server example should be enough)
-- meta file support and other bevy asset related functionality 
+- meta file support and other bevy asset related functionality
 - I experimented with a VCSProvider trait to verify the version of the manifest against the VCS,
   but decided against it for now, but it definitely could be useful.
 

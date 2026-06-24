@@ -114,6 +114,7 @@
 //!     let storage = FileSystemStorage::new("./assets");
 //!     let auth = AllowAllAuth;
 //!
+//!
 //!     // Build
 //!     let app = AquilaServer::default().build(storage, auth);
 //!
