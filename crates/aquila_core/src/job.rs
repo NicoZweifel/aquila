@@ -27,6 +27,9 @@ pub struct JobRequest {
     pub gpu: Option<String>,
     /// Remove the job/container after it finishes.
     pub remove: bool,
+    /// Tags attached to the compute backend job (e.g. AWS tags or Docker labels).
+    #[serde(default)]
+    pub tags: HashMap<String, String>,
 }
 
 /// The result of a compute job request on the server's [`ComputeBackend`].

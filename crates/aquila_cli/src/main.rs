@@ -185,6 +185,12 @@ pub enum ComputeCommands {
         ///  - `--env FOO=bar`
         #[arg(short, long, value_name = "KEY=VALUE")]
         env: Vec<String>,
+
+        /// Job tags, e.g.,
+        ///  - `--tag runner_name=...`
+        ///  - `--tag my_tag=bar`
+        #[arg(short, long, value_name = "KEY=VALUE")]
+        tag: Vec<String>,
     },
 
     /// Attach to a running compute job.
@@ -340,8 +346,17 @@ async fn main() -> anyhow::Result<()> {
                 gpu,
                 remove,
                 env,
+                tag,
             } => {
                 let env: Vec<(String, String)> = env
+                    .into_iter()
+                    .filter_map(|s| {
+                        s.split_once('=')
+                            .map(|(k, v)| (k.to_string(), v.to_string()))
+                    })
+                    .collect();
+
+                let tags: std::collections::HashMap<String, String> = tag
                     .into_iter()
                     .filter_map(|s| {
                         s.split_once('=')
@@ -356,6 +371,7 @@ async fn main() -> anyhow::Result<()> {
                     gpu,
                     remove,
                     env,
+                    tags,
                     profile,
                     ..Default::default()
                 };

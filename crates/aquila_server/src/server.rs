@@ -49,6 +49,7 @@ impl AquilaServer {
             .route(ASSETS, post(asset::upload_asset))
             .route(MANIFEST_BY_VERSION, get(manifest::get))
             .route(MANIFEST, post(manifest::publish))
+            .route(JOBS_LIST, get(job::list_jobs))
             .route(JOBS_RUN, post(job::run))
             .route(JOBS_ATTACH, get(job::attach))
             .route(JOBS_STOP, post(job::stop))

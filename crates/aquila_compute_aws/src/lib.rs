@@ -19,11 +19,22 @@ use std::{
 
 use uuid::Uuid;
 
+fn format_err<E: std::error::Error>(msg: &str, e: E) -> String {
+    let mut out = format!("{msg}: {e}");
+    let mut src = e.source();
+    while let Some(s) = src {
+        out.push_str(&format!(" -> {s}"));
+        src = s.source();
+    }
+    out
+}
+
 #[derive(Clone, Debug)]
 pub struct AwsBatchBackend {
     batch: BatchClient,
     logs: LogsClient,
     default_queue: String,
+    extra_queues: Vec<String>,
     profiles: HashMap<String, String>,
 }
 
@@ -37,8 +48,14 @@ impl AwsBatchBackend {
             batch: BatchClient::new(config),
             logs: LogsClient::new(config),
             default_queue: default_queue.into(),
+            extra_queues: Vec::new(),
             profiles,
         }
+    }
+
+    pub fn with_extra_queues(mut self, queues: Vec<String>) -> Self {
+        self.extra_queues = queues;
+        self
     }
 
     /// Resolves the base Job Definition ARN from the request profile.
@@ -152,7 +169,7 @@ impl AwsBatchBackend {
             .send()
             .await
             .map(|r| r.job_definition_arn)
-            .map_err(|e| ComputeError::System(format!("Failed to register definition: {:?}", e)))?
+            .map_err(|e| ComputeError::System(format_err("Failed to register definition", e)))?
             .map(Ok)
             .unwrap_or(Err(ComputeError::System(
                 "Failed to register definition".to_string(),
@@ -168,7 +185,7 @@ impl ComputeBackend for AwsBatchBackend {
             .send()
             .await
             .map(|_| ())
-            .map_err(|e| ComputeError::System(format!("AWS Batch error: {}", e)))
+            .map_err(|e| ComputeError::System(format_err("AWS Batch error", e)))
     }
 
     async fn run(&self, req: JobRequest) -> Result<JobResult, ComputeError> {
@@ -194,6 +211,11 @@ impl ComputeBackend for AwsBatchBackend {
             .job_name(name)
             .job_queue(queue)
             .job_definition(job)
+            .set_tags(if req.tags.is_empty() {
+                None
+            } else {
+                Some(req.tags)
+            })
             .container_overrides(builder.build())
             .send()
             .await
@@ -201,7 +223,7 @@ impl ComputeBackend for AwsBatchBackend {
                 id: output.job_id.unwrap_or_default(),
                 status: JobStatus::pending(),
             })
-            .map_err(|e| ComputeError::System(e.to_string()))
+            .map_err(|e| ComputeError::System(format_err("AWS Error", e)))
     }
 
     // TODO refactor this into sensible pieces/reduce nesting
@@ -314,7 +336,7 @@ impl ComputeBackend for AwsBatchBackend {
             .send()
             .await
             .map(|_| ())
-            .map_err(|e| ComputeError::System(format!("Failed to stop job: {}", e)))
+            .map_err(|e| ComputeError::System(format_err("Failed to stop job", e)))
     }
 
     async fn get_logs(&self, id: &str) -> Result<String, ComputeError> {
@@ -324,7 +346,7 @@ impl ComputeBackend for AwsBatchBackend {
             .jobs(id)
             .send()
             .await
-            .map_err(|e| ComputeError::System(e.to_string()))?;
+            .map_err(|e| ComputeError::System(format_err("AWS Error", e)))?;
 
         let job = jobs
             .jobs()
@@ -354,7 +376,7 @@ impl ComputeBackend for AwsBatchBackend {
             let res = req
                 .send()
                 .await
-                .map_err(|e| ComputeError::System(e.to_string()))?;
+                .map_err(|e| ComputeError::System(format_err("AWS Error", e)))?;
 
             if let Some(chunk) = res.events {
                 for event in chunk {
@@ -380,7 +402,7 @@ impl ComputeBackend for AwsBatchBackend {
             .jobs(id)
             .send()
             .await
-            .map_err(|e| ComputeError::System(e.to_string()))?;
+            .map_err(|e| ComputeError::System(format_err("AWS Error", e)))?;
 
         let job = jobs
             .jobs()
@@ -406,6 +428,88 @@ impl ComputeBackend for AwsBatchBackend {
             exit_code,
             ..Default::default()
         })
+    }
+
+    async fn list_jobs(&self) -> Result<Vec<JobResult>, ComputeError> {
+        let statuses = vec![
+            AwsJobStatus::Running,
+            AwsJobStatus::Starting,
+            AwsJobStatus::Runnable,
+            AwsJobStatus::Pending,
+            AwsJobStatus::Submitted,
+        ];
+
+        let mut all_queues = vec![self.default_queue.clone()];
+        all_queues.extend(self.extra_queues.clone());
+
+        let mut job_ids = Vec::new();
+        for queue in &all_queues {
+            for status in &statuses {
+                let res = self
+                    .batch
+                    .list_jobs()
+                    .job_queue(queue)
+                    .job_status(status.clone())
+                    .send()
+                    .await
+                    .map_err(|e| ComputeError::System(format_err("AWS Error", e)))?;
+
+                job_ids.extend(
+                    res.job_summary_list()
+                        .iter()
+                        .filter_map(|j| j.job_id().map(|id| id.to_string())),
+                );
+            }
+        }
+
+        if job_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut results = Vec::new();
+        for chunk in job_ids.chunks(100) {
+            let desc = self
+                .batch
+                .describe_jobs()
+                .set_jobs(Some(chunk.to_vec()))
+                .send()
+                .await
+                .map_err(|e| ComputeError::System(format_err("AWS Error", e)))?;
+
+            results.extend(desc.jobs().iter().map(|job| {
+                let state = match job.status() {
+                    Some(AwsJobStatus::Submitted)
+                    | Some(AwsJobStatus::Pending)
+                    | Some(AwsJobStatus::Runnable) => JobState::Pending,
+                    Some(AwsJobStatus::Starting) | Some(AwsJobStatus::Running) => JobState::Running,
+                    Some(AwsJobStatus::Succeeded) => JobState::Succeeded,
+                    Some(AwsJobStatus::Failed) => JobState::Failed,
+                    _ => JobState::Pending,
+                };
+
+                let outputs = job
+                    .tags()
+                    .map(|tags| {
+                        tags.iter()
+                            .map(|(k, v)| (k.clone(), v.clone()))
+                            .collect::<std::collections::HashMap<_, _>>()
+                    })
+                    .unwrap_or_default();
+
+                JobResult {
+                    id: job.job_id().unwrap_or_default().to_string(),
+                    status: JobStatus {
+                        state,
+                        message: job.status_reason().map(|s| s.to_string()),
+                        exit_code: job.container().and_then(|c| c.exit_code()),
+                        outputs,
+                        timestamp: Some(chrono::Utc::now().to_rfc3339()),
+                    },
+                }
+            }));
+        }
+
+        Ok(results)
     }
 }
 

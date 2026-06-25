@@ -323,6 +323,24 @@ impl AquilaClient {
         Ok(logs)
     }
 
+    pub async fn list_jobs(&self) -> Result<Vec<JobResult>> {
+        let url = format!("{}{}", self.base_url, JOBS_LIST);
+        let res = self.auth_request(self.client.get(&url)).send().await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            return Err(AquilaClientError::ServerError(status, text));
+        }
+
+        let jobs: Vec<JobResult> = res
+            .json()
+            .await
+            .map_err(|e| AquilaClientError::Validation(format!("Failed to parse jobs: {}", e)))?;
+
+        Ok(jobs)
+    }
+
     pub async fn get_job_status(&self, job_id: &str) -> Result<JobStatus> {
         let url = format!("{}/jobs/{}", self.base_url, job_id);
         let res = self.auth_request(self.client.get(&url)).send().await?;

@@ -27,6 +27,7 @@ pub mod routes {
     pub const MANIFEST: &str = "/manifest";
     pub const MANIFEST_BY_VERSION: &str = "/manifest/{version}";
 
+    pub const JOBS_LIST: &str = "/jobs";
     pub const JOBS_RUN: &str = "/jobs/run";
     pub const JOBS_ATTACH: &str = "/jobs/{id}/attach";
     pub const JOBS_STOP: &str = "/jobs/{id}/stop";

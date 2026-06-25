@@ -199,6 +199,9 @@ pub trait ComputeBackend: Send + Sync + 'static + Clone {
 
     /// Retrieves the current status.
     fn get_status(&self, id: &str) -> impl Future<Output = Result<JobStatus, ComputeError>> + Send;
+
+    /// Lists all active jobs.
+    fn list_jobs(&self) -> impl Future<Output = Result<Vec<JobResult>, ComputeError>> + Send;
 }
 
 /// A [`ComputeBackend`] that returns [`ComputeError::Unsupported`] for all operations.
@@ -230,6 +233,10 @@ impl ComputeBackend for NoComputeBackend {
     }
 
     async fn get_status(&self, _id: &str) -> Result<JobStatus, ComputeError> {
+        Err(ComputeError::Unsupported("Not supported!".to_string()))
+    }
+
+    async fn list_jobs(&self) -> Result<Vec<JobResult>, ComputeError> {
         Err(ComputeError::Unsupported("Not supported!".to_string()))
     }
 }

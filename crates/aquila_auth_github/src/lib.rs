@@ -35,6 +35,12 @@ struct GithubUser {
     login: String,
 }
 
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct GithubMembership {
+    pub state: String,
+    pub role: String,
+}
+
 struct CachedUser {
     user: User,
     expires_at: Instant,
@@ -141,8 +147,8 @@ impl GithubAuthProvider {
         token: &str,
         username: &str,
         org: &str,
-    ) -> Result<(), AuthError> {
-        let url = format!("https://api.github.com/orgs/{}/members/{}", org, username);
+    ) -> Result<GithubMembership, AuthError> {
+        let url = format!("https://api.github.com/orgs/{}/memberships/{}", org, username);
         let res = self
             .client
             .get(&url)
@@ -151,8 +157,20 @@ impl GithubAuthProvider {
             .await
             .map_err(|e| AuthError::System(format!("Membership check failed: {}", e)))?;
 
-        if res.status() == StatusCode::NO_CONTENT {
-            Ok(())
+        if res.status() == StatusCode::OK {
+            let membership: GithubMembership = res
+                .json()
+                .await
+                .map_err(|_| AuthError::System("Failed to parse membership".into()))?;
+            
+            if membership.state != "active" {
+                return Err(AuthError::Forbidden(format!(
+                    "User {} is not an active member of {}",
+                    username, org
+                )));
+            }
+
+            Ok(membership)
         } else {
             Err(AuthError::Forbidden(format!(
                 "User {} is not a member of {}",
@@ -183,15 +201,19 @@ impl AuthProvider for GithubAuthProvider {
 
         let gh_user = self.fetch_user(token).await?;
 
-        let scopes = if let Some(cfg) = &self.config
+        let mut scopes = if let Some(cfg) = &self.config
             && let Some(org) = &cfg.required_org
         {
-            self.check_org_membership(token, &gh_user.login, org)
-                .await?;
-
+            let membership = self.check_org_membership(token, &gh_user.login, org).await?;
+            let mut s = cfg.default_scopes.clone();
+            if membership.role == "admin" {
+                s.push("admin".to_string());
+            }
+            s
+        } else if let Some(cfg) = &self.config {
             cfg.default_scopes.clone()
         } else {
-            Default::default()
+            vec![]
         };
 
         let user = User {

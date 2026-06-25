@@ -7,7 +7,8 @@ use bollard::{
     models::{DeviceRequest, HostConfig},
     query_parameters::StartContainerOptions,
     query_parameters::{
-        CreateContainerOptions, DownloadFromContainerOptions, LogsOptions, StopContainerOptions,
+        CreateContainerOptions, DownloadFromContainerOptions, ListContainersOptions, LogsOptions,
+        StopContainerOptions,
     },
 };
 
@@ -114,10 +115,14 @@ impl ComputeBackend for DockerComputeBackend {
             ..Default::default()
         };
 
+        let mut labels = req.tags.clone();
+        labels.insert("aquila.job".to_string(), "true".to_string());
+
         let body = ContainerCreateBody {
             image: req.img,
             cmd: Some(req.cmd),
             env: Some(env),
+            labels: Some(labels),
             host_config: Some(HostConfig {
                 device_requests,
                 auto_remove: Some(req.remove),
@@ -151,114 +156,170 @@ impl ComputeBackend for DockerComputeBackend {
             stdout: true,
             stderr: true,
             timestamps: true,
-            tail: "all".to_string(),
             ..Default::default()
         };
 
-        let stream = self.client.logs(job_id, Some(options));
-        let mapped_stream = stream.map(|res| match res {
-            Ok(output) => {
-                let (source, bytes) = match output {
-                    DockerLogOutput::StdOut { message } => (LogSource::Stdout, message),
-                    DockerLogOutput::StdErr { message } => (LogSource::Stderr, message),
-                    DockerLogOutput::Console { message } => (LogSource::Console, message),
-                    DockerLogOutput::StdIn { message } => (LogSource::Console, message),
-                };
+        let stream = self
+            .client
+            .logs(job_id, Some(options))
+            .map(|chunk_res| match chunk_res {
+                Ok(chunk) => {
+                    let source = match chunk {
+                        DockerLogOutput::StdOut { .. } => LogSource::Stdout,
+                        DockerLogOutput::StdErr { .. } => LogSource::Stderr,
+                        DockerLogOutput::Console { .. } => LogSource::Console,
+                        DockerLogOutput::StdIn { .. } => LogSource::Console,
+                    };
+                    let msg = String::from_utf8_lossy(chunk.as_ref()).to_string();
+                    let (timestamp, msg) = if let Some((ts, rest)) = msg.split_once(' ') {
+                        (Some(ts.to_string()), rest.to_string())
+                    } else {
+                        (None, msg)
+                    };
 
-                let full_line = String::from_utf8_lossy(&bytes);
-                let (ts, msg) = match full_line.split_once(' ') {
-                    Some((t, m)) => (Some(t.to_string()), m.to_string()),
-                    None => (None, full_line.to_string()),
-                };
+                    Ok(LogOutput {
+                        source,
+                        timestamp,
+                        message: msg,
+                    })
+                }
+                Err(e) => Err(ComputeError::System(e.to_string())),
+            })
+            .boxed();
 
-                Ok(LogOutput {
-                    source,
-                    timestamp: ts,
-                    message: msg,
-                })
-            }
-            Err(e) => Err(ComputeError::System(e.to_string())),
-        });
-
-        Ok(mapped_stream.boxed())
+        Ok(stream)
     }
 
     async fn stop(&self, id: &str) -> Result<(), ComputeError> {
         self.client
             .stop_container(id, None::<StopContainerOptions>)
             .await
-            .map_err(|e| ComputeError::System(format!("Failed to stop container: {}", e)))
+            .map_err(|e| ComputeError::InvalidRequest(e.to_string()))
     }
 
     async fn get_logs(&self, id: &str) -> Result<String, ComputeError> {
         let options = LogsOptions {
             stdout: true,
             stderr: true,
-            timestamps: false,
-            tail: "all".to_string(),
+            timestamps: true,
             ..Default::default()
         };
 
-        let logs = self
-            .client
-            .logs(id, Some(options))
-            .map(|res| match res {
-                Ok(DockerLogOutput::StdOut { message }) => {
-                    String::from_utf8_lossy(&message).to_string()
-                }
-                Ok(DockerLogOutput::StdErr { message }) => {
-                    String::from_utf8_lossy(&message).to_string()
-                }
-                Ok(DockerLogOutput::Console { message }) => {
-                    String::from_utf8_lossy(&message).to_string()
-                }
-                Ok(_) => String::new(),
-                Err(_) => String::new(),
-            })
-            .collect::<Vec<String>>()
-            .await;
+        let mut logs = String::new();
+        let mut stream = self.client.logs(id, Some(options));
 
-        Ok(logs.join(""))
+        while let Some(chunk_res) = stream.next().await {
+            if let Ok(chunk) = chunk_res {
+                let msg = String::from_utf8_lossy(chunk.as_ref()).to_string();
+                let (_, msg) = msg.split_once(' ').unwrap_or(("", &msg));
+                logs.push_str(msg);
+            }
+        }
+
+        Ok(logs)
     }
 
     async fn get_status(&self, id: &str) -> Result<JobStatus, ComputeError> {
-        let res = self
+        let inspect = self
             .client
             .inspect_container(id, None)
             .await
-            .map_err(|_| ComputeError::NotFound(format!("Job {} not found", id)))?;
+            .map_err(|e| ComputeError::NotFound(e.to_string()))?;
 
-        let container_state = res.state.unwrap_or_default();
-        let status = container_state
-            .status
-            .unwrap_or(ContainerStateStatusEnum::CREATED);
+        let state = inspect.state.unwrap_or_default();
+        let status = state.status.unwrap_or(ContainerStateStatusEnum::EMPTY);
 
-        let exit_code = container_state.exit_code.map(|c| c as i32);
-        let finished_at = container_state.finished_at;
-
-        let state = match status {
+        let job_state = match status {
+            ContainerStateStatusEnum::CREATED | ContainerStateStatusEnum::RESTARTING => {
+                JobState::Pending
+            }
             ContainerStateStatusEnum::RUNNING => JobState::Running,
-            ContainerStateStatusEnum::EXITED => match exit_code {
-                Some(0) => JobState::Succeeded,
-                _ => JobState::Failed,
-            },
-            ContainerStateStatusEnum::DEAD => JobState::Failed,
-            ContainerStateStatusEnum::PAUSED => JobState::Pending,
-            ContainerStateStatusEnum::RESTARTING => JobState::Running,
-            _ => JobState::Pending,
+            ContainerStateStatusEnum::EXITED | ContainerStateStatusEnum::DEAD => {
+                if state.exit_code == Some(0) {
+                    JobState::Succeeded
+                } else {
+                    JobState::Failed
+                }
+            }
+            ContainerStateStatusEnum::PAUSED
+            | ContainerStateStatusEnum::REMOVING
+            | ContainerStateStatusEnum::EMPTY => JobState::Failed,
         };
 
-        let mut outputs = HashMap::new();
-        if state == JobState::Succeeded {
-            outputs = self.fetch_outputs(id).await;
-        }
+        let outputs = if job_state == JobState::Succeeded || job_state == JobState::Failed {
+            self.fetch_outputs(id).await
+        } else {
+            HashMap::new()
+        };
 
         Ok(JobStatus {
-            state,
-            message: container_state.error,
-            exit_code,
+            state: job_state,
+            message: state.error,
+            exit_code: state.exit_code.map(|c| c as i32),
             outputs,
-            timestamp: finished_at,
+            timestamp: state.finished_at,
         })
+    }
+
+    async fn list_jobs(&self) -> Result<Vec<JobResult>, ComputeError> {
+        let mut filters = HashMap::new();
+        filters.insert("label".to_string(), vec!["aquila.job=true".to_string()]);
+
+        let options = ListContainersOptions {
+            all: true,
+            filters: Some(filters),
+            ..Default::default()
+        };
+
+        let containers = self
+            .client
+            .list_containers(Some(options))
+            .await
+            .map_err(|e| ComputeError::System(e.to_string()))?;
+
+        let results = containers
+            .into_iter()
+            .map(|container| {
+                let id = container.id.unwrap_or_default();
+
+                // Map container status to JobState
+                use bollard::models::ContainerSummaryStateEnum;
+                let job_state = match container.state {
+                    Some(ContainerSummaryStateEnum::CREATED)
+                    | Some(ContainerSummaryStateEnum::RESTARTING) => JobState::Pending,
+                    Some(ContainerSummaryStateEnum::RUNNING) => JobState::Running,
+                    Some(ContainerSummaryStateEnum::EXITED) | Some(ContainerSummaryStateEnum::DEAD) => {
+                        JobState::Failed
+                    }
+                    _ => JobState::Failed,
+                };
+
+                let outputs = container
+                    .labels
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|(k, _)| k != "aquila.job")
+                    .collect();
+
+                // If it's a specific name, use that, otherwise use ID
+                let name = container
+                    .names
+                    .and_then(|names| names.into_iter().next())
+                    .map(|first| first.trim_start_matches('/').to_string())
+                    .unwrap_or(id);
+
+                JobResult {
+                    id: name,
+                    status: JobStatus {
+                        state: job_state,
+                        outputs,
+                        timestamp: None,
+                        ..Default::default()
+                    },
+                }
+            })
+            .collect();
+
+        Ok(results)
     }
 }

@@ -19,26 +19,32 @@ where
         parts: &mut Parts,
         state: &AppState<S>,
     ) -> Result<Self, Self::Rejection> {
-        let token = parts
-            .headers
-            .get("Authorization")
-            .and_then(|auth_header| {
-                auth_header
-                    .to_str()
-                    .map(|header_str| {
-                        header_str
-                            .strip_prefix("Bearer ")
-                            .unwrap_or(header_str)
-                            .trim()
-                    })
-                    .ok()
-            })
-            .unwrap_or("");
+        let token_from_header = parts.headers.get("Authorization").and_then(|auth_header| {
+            auth_header
+                .to_str()
+                .map(|header_str| {
+                    header_str
+                        .strip_prefix("Bearer ")
+                        .unwrap_or(header_str)
+                        .trim()
+                })
+                .ok()
+        });
+
+        let token = if let Some(t) = token_from_header {
+            t.to_string()
+        } else {
+            let query = parts.uri.query().unwrap_or("");
+            form_urlencoded::parse(query.as_bytes())
+                .find(|(key, _)| key == "token")
+                .map(|(_, val)| val.into_owned())
+                .unwrap_or_default()
+        };
 
         let auth = state.auth();
         let permissions = state.permissions();
 
-        let user = auth.verify(token).await.map_err(ApiError::from)?;
+        let user = auth.verify(&token).await.map_err(ApiError::from)?;
 
         permissions
             .elevate(user)
