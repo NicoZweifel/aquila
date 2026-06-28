@@ -135,12 +135,13 @@ impl PermissionService for NoPermissionService {
 ///
 /// # Mappings
 /// * **`write`** grants:
-///     * `asset:upload`, `asset:stream`
+///     * `asset:upload`
 ///     * `manifest:publish`
 ///     * `job:run`, `job:attach`
 /// * **`read`** grants:
 ///     * `asset:download`
 ///     * `manifest:read`
+///     * `job:read`
 #[derive(Clone, Debug, Default)]
 pub struct StandardPermissionService;
 
@@ -162,6 +163,7 @@ impl StandardPermissionService {
         if user.scopes.iter().any(|s| s == READ) {
             user.scopes.push(ASSET_DOWNLOAD.into());
             user.scopes.push(MANIFEST_READ.into());
+            user.scopes.push(JOB_READ.into());
         }
 
         Ok(user)
