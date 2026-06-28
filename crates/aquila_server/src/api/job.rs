@@ -27,7 +27,7 @@ pub async fn run<S: AquilaServices>(
 /// GET /jobs
 pub async fn list_jobs<S: AquilaServices>(
     State(state): State<AppState<S>>,
-    _: ScopedUser<JobAttach>,
+    _: ScopedUser<JobRead>,
 ) -> Result<impl IntoResponse, ApiError> {
     let jobs = state.compute().list_jobs().await?;
     Ok(Json(jobs))

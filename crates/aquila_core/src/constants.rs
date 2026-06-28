@@ -9,6 +9,7 @@ pub mod scopes {
     pub const MANIFEST_PUBLISH: &str = "manifest:publish";
     pub const MANIFEST_READ: &str = "manifest:download";
 
+    pub const JOB_READ: &str = "job:read";
     pub const JOB_RUN: &str = "job:run";
     pub const JOB_ATTACH: &str = "job:attach";
 }

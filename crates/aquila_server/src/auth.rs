@@ -129,6 +129,11 @@ impl ScopeRequirement for ManifestRead {
     const SCOPE: &'static str = scopes::MANIFEST_READ;
 }
 
+pub struct JobRead;
+impl ScopeRequirement for JobRead {
+    const SCOPE: &'static str = scopes::JOB_READ;
+}
+
 pub struct JobRun;
 impl ScopeRequirement for JobRun {
     const SCOPE: &'static str = scopes::JOB_RUN;
