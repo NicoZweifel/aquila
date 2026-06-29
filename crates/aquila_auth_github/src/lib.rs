@@ -201,7 +201,7 @@ impl AuthProvider for GithubAuthProvider {
 
         let gh_user = self.fetch_user(token).await?;
 
-        let mut scopes = if let Some(cfg) = &self.config
+        let scopes = if let Some(cfg) = &self.config
             && let Some(org) = &cfg.required_org
         {
             let membership = self.check_org_membership(token, &gh_user.login, org).await?;

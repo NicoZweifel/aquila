@@ -15,8 +15,7 @@ use bollard::{
 use futures::{StreamExt, stream::BoxStream};
 use std::collections::HashMap;
 
-const OUTPUT_ENV_VAR: &str = "AQUILA_OUTPUT";
-const OUTPUT_PATH: &str = "/tmp/aquila_output.json";
+
 
 #[derive(Clone)]
 pub struct DockerComputeBackend {

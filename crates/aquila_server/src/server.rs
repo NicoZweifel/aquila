@@ -26,7 +26,7 @@ pub struct AquilaServerConfig {
     ///
     /// Defaults to `/auth/callback`.
     pub callback: String,
-    
+
     /// Optional redirect URL after successful login for web applications.
     ///
     /// If set, the callback endpoint will return a 302 Redirect to this URL
@@ -45,7 +45,7 @@ impl Default for AquilaServerConfig {
 
 impl AquilaServer {
     pub fn build<S: AquilaServices>(self, services: S) -> Router {
-        let AquilaServerConfig { callback, .. } = self.config;
+        let AquilaServerConfig { ref callback, .. } = self.config;
         Router::new()
             .route(HEALTH, get(|| async { "OK" }))
             .route(AUTH_LOGIN, get(auth::login))
@@ -64,6 +64,9 @@ impl AquilaServer {
             .route(JOBS_STATUS, get(job::get_status))
             .layer(DefaultBodyLimit::disable())
             .layer(TraceLayer::new_for_http())
-            .with_state(AppState { services, config: self.config.clone() })
+            .with_state(AppState {
+                services,
+                config: self.config,
+            })
     }
 }
