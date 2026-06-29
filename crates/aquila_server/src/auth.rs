@@ -31,8 +31,23 @@ where
                 .ok()
         });
 
+        let token_from_cookie = parts.headers.get("Cookie").and_then(|cookie_header| {
+            cookie_header.to_str().ok().and_then(|cookie_str| {
+                cookie_str.split(';').find_map(|pair| {
+                    let pair = pair.trim();
+                    if pair.starts_with("aquila_token=") {
+                        Some(pair["aquila_token=".len()..].trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+        });
+
         let token = if let Some(t) = token_from_header {
             t.to_string()
+        } else if let Some(t) = token_from_cookie {
+            t
         } else {
             let query = parts.uri.query().unwrap_or("");
             form_urlencoded::parse(query.as_bytes())
