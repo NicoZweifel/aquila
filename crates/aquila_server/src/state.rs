@@ -1,8 +1,10 @@
 use aquila_core::prelude::*;
+use crate::server::AquilaServerConfig;
 
 #[derive(Clone)]
 pub struct AppState<R: AquilaServices> {
     pub services: R,
+    pub config: AquilaServerConfig,
 }
 
 impl<S> AquilaServices for AppState<S>

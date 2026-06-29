@@ -10,7 +10,8 @@ use axum::{
     Json,
     extract::{Query, State},
     http::StatusCode,
-    response::{IntoResponse, Redirect},
+    http::header,
+    response::{IntoResponse, Redirect, Response},
 };
 
 #[derive(serde::Deserialize)]
@@ -81,7 +82,7 @@ pub async fn issue_token<S: AquilaServices>(
 pub async fn callback<S: AquilaServices>(
     State(state): State<AppState<S>>,
     Query(params): Query<AuthCallbackParams>,
-) -> Result<impl IntoResponse, ApiError> {
+) -> Result<Response, ApiError> {
     let user = state
         .auth()
         .exchange_code(&params.code)
@@ -94,11 +95,24 @@ pub async fn callback<S: AquilaServices>(
         60 * 60 * 24 * 30, // 30 Days
     )?;
 
+    if let Some(redirect_uri) = &state.config.web_redirect_uri {
+        let cookie_str = format!(
+            "aquila_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+            session_token,
+            60 * 60 * 24 * 30
+        );
+        let mut response = Redirect::temporary(redirect_uri).into_response();
+        response
+            .headers_mut()
+            .insert(header::SET_COOKIE, cookie_str.parse().unwrap());
+        return Ok(response);
+    }
+
     let res = Json(serde_json::json!({
         "status": "success",
         "user": user.id,
         "token": session_token
     }));
 
-    Ok(res)
+    Ok(res.into_response())
 }

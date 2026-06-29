@@ -30,4 +30,16 @@ impl AuthProvider for AllowAllAuth {
             scopes: vec!["admin".to_string(), "read".to_string(), "write".to_string()],
         })
     }
+
+    fn get_login_url(&self) -> Option<String> {
+        Some("/auth/callback?code=mock_code".to_string())
+    }
+
+    async fn exchange_code(&self, code: &str) -> Result<User, AuthError> {
+        if code == "mock_code" {
+            self.verify("dummy_token").await
+        } else {
+            Err(AuthError::Invalid)
+        }
+    }
 }

@@ -26,12 +26,19 @@ pub struct AquilaServerConfig {
     ///
     /// Defaults to `/auth/callback`.
     pub callback: String,
+    
+    /// Optional redirect URL after successful login for web applications.
+    ///
+    /// If set, the callback endpoint will return a 302 Redirect to this URL
+    /// and set the `aquila_token` as an `HttpOnly` cookie.
+    pub web_redirect_uri: Option<String>,
 }
 
 impl Default for AquilaServerConfig {
     fn default() -> Self {
         Self {
             callback: AUTH_CALLBACK.to_string(),
+            web_redirect_uri: None,
         }
     }
 }
@@ -57,6 +64,6 @@ impl AquilaServer {
             .route(JOBS_STATUS, get(job::get_status))
             .layer(DefaultBodyLimit::disable())
             .layer(TraceLayer::new_for_http())
-            .with_state(AppState { services })
+            .with_state(AppState { services, config: self.config.clone() })
     }
 }
