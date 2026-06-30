@@ -24,6 +24,7 @@
 
 use aquila_core::prelude::*;
 use reqwest::{Client, StatusCode};
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -49,7 +50,7 @@ struct CachedUser {
 #[derive(Clone, Debug, Default)]
 pub struct GithubConfig {
     pub client_id: String,
-    pub client_secret: String,
+    pub client_secret: SecretString,
     pub redirect_uri: String,
     pub required_org: Option<String>,
     pub default_scopes: Vec<String>,
@@ -83,10 +84,10 @@ impl GithubAuthProvider {
             .ok_or(AuthError::System("OAuth not configured".into()))?;
 
         let params = [
-            ("client_id", &config.client_id),
-            ("client_secret", &config.client_secret),
-            ("code", &code.to_string()),
-            ("redirect_uri", &config.redirect_uri),
+            ("client_id", config.client_id.as_str()),
+            ("client_secret", config.client_secret.expose_secret()),
+            ("code", code),
+            ("redirect_uri", config.redirect_uri.as_str()),
         ];
 
         let res = self

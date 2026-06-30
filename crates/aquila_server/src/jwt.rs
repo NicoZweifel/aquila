@@ -1,4 +1,5 @@
 use aquila_core::prelude::*;
+use secrecy::{ExposeSecret, SecretString};
 
 use jsonwebtoken::*;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -52,10 +53,10 @@ impl JwtService {
     /// - `secret`: The secret used to for JWT tokens.
     ///
     /// **NOTE:** This should be set to a secure value!
-    pub fn new(secret: &str) -> Self {
+    pub fn new(secret: SecretString) -> Self {
         Self {
-            encoding_key: EncodingKey::from_secret(secret.as_bytes()),
-            decoding_key: DecodingKey::from_secret(secret.as_bytes()),
+            encoding_key: EncodingKey::from_secret(secret.expose_secret().as_bytes()),
+            decoding_key: DecodingKey::from_secret(secret.expose_secret().as_bytes()),
         }
     }
 }

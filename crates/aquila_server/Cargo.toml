@@ -1,13 +1,13 @@
 [package]
 name = "aquila_server"
-version = "0.7.0-rc.22"
+version = "0.7.0-rc.23"
 edition = "2024"
 description = "Aquila server"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NicoZweifel/aquila"
 
 [dependencies]
-aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.22"}
+aquila_core = { path = "../aquila_core" ,version = "0.7.0-rc.23"}
 axum = { workspace = true, features = ["macros", "ws"] }
 anyhow = {workspace=true}
 bytes = {workspace=true}
@@ -21,3 +21,4 @@ tracing ={workspace = true}
 jsonwebtoken = { version = "10.2",features = ["rust_crypto"] }
 tower-http = { version = "0.6", features = ["trace"] }
 form_urlencoded = "1.2.2"
+secrecy = "0.10.3"

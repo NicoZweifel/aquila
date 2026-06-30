@@ -16,6 +16,7 @@
 //! ```
 
 use aquila::prelude::*;
+use secrecy::SecretString;
 use std::env;
 
 #[tokio::main]
@@ -41,7 +42,7 @@ async fn main() {
             env::var("GITHUB_CLIENT_SECRET").map(|client_secret| GithubConfig {
                 redirect_uri,
                 client_id,
-                client_secret,
+                client_secret: SecretString::from(client_secret),
                 required_org,
                 // All users will get these by default, these can be managed by the `PermissionService`.
                 // If you are not defining a required organization in the configuration above,
@@ -54,7 +55,7 @@ async fn main() {
     // Providers & Services
     let storage = FileSystemStorage::new("./aquila_data");
     let gh_auth = GithubAuthProvider::new(gh_cfg);
-    let jwt = JwtService::new(&jwt_secret);
+    let jwt = JwtService::new(SecretString::from(jwt_secret));
     let auth = JWTServiceAuthProvider::new(jwt.clone(), gh_auth);
     let compute = NoComputeBackend;
     let permissions = StandardPermissionService;
@@ -71,6 +72,7 @@ async fn main() {
     let app = AquilaServer::new(AquilaServerConfig {
         // this is the default but just to be explicit, see above.
         callback: "/auth/callback".to_string(),
+        ..Default::default()
     })
     .build(services);
 
