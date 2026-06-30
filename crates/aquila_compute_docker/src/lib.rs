@@ -15,8 +15,6 @@ use bollard::{
 use futures::{StreamExt, stream::BoxStream};
 use std::collections::HashMap;
 
-
-
 #[derive(Clone)]
 pub struct DockerComputeBackend {
     client: Docker,
@@ -287,9 +285,8 @@ impl ComputeBackend for DockerComputeBackend {
                     Some(ContainerSummaryStateEnum::CREATED)
                     | Some(ContainerSummaryStateEnum::RESTARTING) => JobState::Pending,
                     Some(ContainerSummaryStateEnum::RUNNING) => JobState::Running,
-                    Some(ContainerSummaryStateEnum::EXITED) | Some(ContainerSummaryStateEnum::DEAD) => {
-                        JobState::Failed
-                    }
+                    Some(ContainerSummaryStateEnum::EXITED)
+                    | Some(ContainerSummaryStateEnum::DEAD) => JobState::Failed,
                     _ => JobState::Failed,
                 };
 

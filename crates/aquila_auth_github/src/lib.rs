@@ -148,7 +148,10 @@ impl GithubAuthProvider {
         username: &str,
         org: &str,
     ) -> Result<GithubMembership, AuthError> {
-        let url = format!("https://api.github.com/orgs/{}/memberships/{}", org, username);
+        let url = format!(
+            "https://api.github.com/orgs/{}/memberships/{}",
+            org, username
+        );
         let res = self
             .client
             .get(&url)
@@ -162,7 +165,7 @@ impl GithubAuthProvider {
                 .json()
                 .await
                 .map_err(|_| AuthError::System("Failed to parse membership".into()))?;
-            
+
             if membership.state != "active" {
                 return Err(AuthError::Forbidden(format!(
                     "User {} is not an active member of {}",
@@ -204,7 +207,9 @@ impl AuthProvider for GithubAuthProvider {
         let scopes = if let Some(cfg) = &self.config
             && let Some(org) = &cfg.required_org
         {
-            let membership = self.check_org_membership(token, &gh_user.login, org).await?;
+            let membership = self
+                .check_org_membership(token, &gh_user.login, org)
+                .await?;
             let mut s = cfg.default_scopes.clone();
             if membership.role == "admin" {
                 s.push("admin".to_string());

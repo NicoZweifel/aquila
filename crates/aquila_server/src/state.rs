@@ -1,5 +1,5 @@
-use aquila_core::prelude::*;
 use crate::server::AquilaServerConfig;
+use aquila_core::prelude::*;
 
 #[derive(Clone)]
 pub struct AppState<R: AquilaServices> {
