@@ -250,7 +250,7 @@ dependencies = [
 
 [[package]]
 name = "aquila"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "aquila_auth_github",
@@ -277,7 +277,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_auth_github"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
  "hex",
@@ -289,14 +289,14 @@ dependencies = [
 
 [[package]]
 name = "aquila_auth_mock"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
 ]
 
 [[package]]
 name = "aquila_cli"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "aquila_client",
@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_client"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "aquila_core",
@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_compute_aws"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
  "aws-config",
@@ -346,7 +346,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_compute_docker"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
  "bollard",
@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_core"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -371,7 +371,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_fs"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
  "bytes",
@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_opendal"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
  "bytes",
@@ -391,7 +391,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_s3"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_core",
  "aws-sdk-s3",
@@ -406,7 +406,7 @@ dependencies = [
 
 [[package]]
 name = "aquila_server"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "aquila_core",
@@ -1342,7 +1342,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_aquila"
-version = "0.7.0-rc.23"
+version = "0.7.0"
 dependencies = [
  "aquila_client",
  "aquila_core",
