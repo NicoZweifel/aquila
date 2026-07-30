@@ -24,6 +24,7 @@
 
 use aquila_core::prelude::*;
 use reqwest::{Client, StatusCode};
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -35,6 +36,12 @@ struct GithubUser {
     login: String,
 }
 
+#[derive(serde::Deserialize, Clone, Debug)]
+pub struct GithubMembership {
+    pub state: String,
+    pub role: String,
+}
+
 struct CachedUser {
     user: User,
     expires_at: Instant,
@@ -43,9 +50,10 @@ struct CachedUser {
 #[derive(Clone, Debug, Default)]
 pub struct GithubConfig {
     pub client_id: String,
-    pub client_secret: String,
+    pub client_secret: SecretString,
     pub redirect_uri: String,
     pub required_org: Option<String>,
+    pub default_scopes: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -73,13 +81,13 @@ impl GithubAuthProvider {
         let config = self
             .config
             .as_ref()
-            .ok_or(AuthError::Generic("OAuth not configured".into()))?;
+            .ok_or(AuthError::System("OAuth not configured".into()))?;
 
         let params = [
-            ("client_id", &config.client_id),
-            ("client_secret", &config.client_secret),
-            ("code", &code.to_string()),
-            ("redirect_uri", &config.redirect_uri),
+            ("client_id", config.client_id.as_str()),
+            ("client_secret", config.client_secret.expose_secret()),
+            ("code", code),
+            ("redirect_uri", config.redirect_uri.as_str()),
         ];
 
         let res = self
@@ -89,7 +97,7 @@ impl GithubAuthProvider {
             .form(&params)
             .send()
             .await
-            .map_err(|e| AuthError::Generic(format!("Network error: {}", e)))?;
+            .map_err(|e| AuthError::System(format!("Network error: {}", e)))?;
 
         #[derive(Deserialize)]
         struct TokenRes {
@@ -99,7 +107,7 @@ impl GithubAuthProvider {
         let token_res: TokenRes = res
             .json()
             .await
-            .map_err(|_| AuthError::Generic("Failed to parse GitHub token response".into()))?;
+            .map_err(|_| AuthError::System("Failed to parse GitHub token response".into()))?;
 
         Ok(token_res.access_token)
     }
@@ -117,14 +125,14 @@ impl GithubAuthProvider {
             .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
-            .map_err(|e| AuthError::Generic(format!("GitHub API error: {}", e)))?;
+            .map_err(|e| AuthError::System(format!("GitHub API error: {}", e)))?;
 
         if res.status() == StatusCode::UNAUTHORIZED {
-            return Err(AuthError::InvalidToken);
+            return Err(AuthError::Invalid);
         }
 
         if !res.status().is_success() {
-            return Err(AuthError::Generic(format!(
+            return Err(AuthError::System(format!(
                 "GitHub returned {}",
                 res.status()
             )));
@@ -132,7 +140,7 @@ impl GithubAuthProvider {
 
         res.json::<GithubUser>()
             .await
-            .map_err(|_| AuthError::Generic("Failed to parse GitHub response".into()))
+            .map_err(|_| AuthError::System("Failed to parse GitHub response".into()))
     }
 
     async fn check_org_membership(
@@ -140,18 +148,33 @@ impl GithubAuthProvider {
         token: &str,
         username: &str,
         org: &str,
-    ) -> Result<(), AuthError> {
-        let url = format!("https://api.github.com/orgs/{}/members/{}", org, username);
+    ) -> Result<GithubMembership, AuthError> {
+        let url = format!(
+            "https://api.github.com/orgs/{}/memberships/{}",
+            org, username
+        );
         let res = self
             .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
-            .map_err(|e| AuthError::Generic(format!("Membership check failed: {}", e)))?;
+            .map_err(|e| AuthError::System(format!("Membership check failed: {}", e)))?;
 
-        if res.status() == StatusCode::NO_CONTENT {
-            Ok(())
+        if res.status() == StatusCode::OK {
+            let membership: GithubMembership = res
+                .json()
+                .await
+                .map_err(|_| AuthError::System("Failed to parse membership".into()))?;
+
+            if membership.state != "active" {
+                return Err(AuthError::Forbidden(format!(
+                    "User {} is not an active member of {}",
+                    username, org
+                )));
+            }
+
+            Ok(membership)
         } else {
             Err(AuthError::Forbidden(format!(
                 "User {} is not a member of {}",
@@ -163,6 +186,10 @@ impl GithubAuthProvider {
 
 impl AuthProvider for GithubAuthProvider {
     async fn verify(&self, token: &str) -> Result<User, AuthError> {
+        if token.is_empty() {
+            return Err(AuthError::Missing);
+        }
+
         let token_hash = self.hash_token(token);
 
         {
@@ -178,16 +205,26 @@ impl AuthProvider for GithubAuthProvider {
 
         let gh_user = self.fetch_user(token).await?;
 
-        if let Some(cfg) = &self.config
+        let scopes = if let Some(cfg) = &self.config
             && let Some(org) = &cfg.required_org
         {
-            self.check_org_membership(token, &gh_user.login, org)
+            let membership = self
+                .check_org_membership(token, &gh_user.login, org)
                 .await?;
-        }
+            let mut s = cfg.default_scopes.clone();
+            if membership.role == "admin" {
+                s.push("admin".to_string());
+            }
+            s
+        } else if let Some(cfg) = &self.config {
+            cfg.default_scopes.clone()
+        } else {
+            vec![]
+        };
 
         let user = User {
             id: gh_user.login,
-            scopes: vec!["read".to_string(), "write".to_string()],
+            scopes,
         };
 
         {

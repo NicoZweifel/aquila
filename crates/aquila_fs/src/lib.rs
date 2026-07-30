@@ -17,9 +17,9 @@
 
 use aquila_core::prelude::*;
 use bytes::Bytes;
-use futures::{Stream, StreamExt};
+use futures::StreamExt;
+use futures::stream::BoxStream;
 use std::path::PathBuf;
-use std::pin::Pin;
 use tokio::fs;
 
 async fn atomic_write(path: &std::path::Path, data: Bytes) -> Result<(), StorageError> {
@@ -65,7 +65,7 @@ impl StorageBackend for FileSystemStorage {
     async fn write_stream(
         &self,
         hash: &str,
-        mut stream: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+        mut stream: BoxStream<'static, Result<Bytes, std::io::Error>>,
         _content_length: Option<u64>,
     ) -> Result<bool, StorageError> {
         let path = self.get_path(hash);
